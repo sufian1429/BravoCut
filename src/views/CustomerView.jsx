@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { User, Clock, Volume2, UserPlus, Info, Globe } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { User, Clock, Volume2, UserPlus, Info, Globe, ChevronDown } from 'lucide-react';
 import { locales } from '../utils/locales';
 
 export default function CustomerView({ barbers, onBook }) {
@@ -7,8 +7,22 @@ export default function CustomerView({ barbers, onBook }) {
   const [customerPhone, setCustomerPhone] = useState('');
   const [selectedBarber, setSelectedBarber] = useState('any');
   const [lang, setLang] = useState('th');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
 
   const t = locales[lang];
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSelectLang = (key) => { setLang(key); setDropdownOpen(false); };
 
   const getEstimatedTime = (queueIndex) => {
     const avgMinutesPerCut = 40;
@@ -30,58 +44,81 @@ export default function CustomerView({ barbers, onBook }) {
   return (
     <div className="space-y-8">
 
-      {/* ปุ่มเลือกภาษา */}
-      <div className="flex items-center justify-end gap-2">
-        <Globe size={16} className="text-neutral-400" />
-        {Object.entries(locales).map(([key, val]) => (
+      {/* Dropdown ภาษา */}
+      <div className="flex justify-end">
+        <div className="relative" ref={dropdownRef}>
           <button
-            key={key}
-            onClick={() => setLang(key)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              lang === key
-                ? 'bg-yellow-600 text-black'
-                : 'bg-neutral-800 text-neutral-400 hover:text-white'
-            }`}
+            onClick={() => setDropdownOpen(!dropdownOpen)}
+            className="flex items-center gap-2 px-4 py-2 bg-neutral-900 border border-neutral-800 hover:border-yellow-700/60 rounded-lg text-sm font-medium text-neutral-300 transition-all duration-200"
           >
-            {val.flag} {val.label}
+            <Globe size={14} className="text-yellow-600" />
+            <span>{locales[lang].flag} {locales[lang].label}</span>
+            <ChevronDown size={13} className={`text-neutral-500 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} />
           </button>
-        ))}
+
+          {dropdownOpen && (
+            <div className="absolute right-0 mt-2 w-44 bg-[#111] border border-neutral-800 rounded-xl shadow-2xl shadow-black/60 z-50 overflow-hidden animate-slide-up">
+              {/* เส้นทองหัว dropdown */}
+              <div className="h-[1px] bg-gradient-to-r from-transparent via-yellow-700 to-transparent" />
+              {Object.entries(locales).map(([key, val]) => (
+                <button
+                  key={key}
+                  onClick={() => handleSelectLang(key)}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
+                    lang === key
+                      ? 'bg-gradient-to-r from-yellow-700/30 to-transparent text-yellow-400 font-semibold border-l-2 border-yellow-500'
+                      : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
+                  }`}
+                >
+                  <span className="text-base">{val.flag}</span>
+                  <span>{val.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ฟอร์มจองคิว */}
-      <section className="bg-neutral-800/50 border border-neutral-700 rounded-2xl p-6 shadow-xl backdrop-blur-sm">
-        <h2 className="text-xl font-semibold mb-6 flex items-center gap-2 text-white">
-          <UserPlus className="text-yellow-500" /> {t.bookingTitle}
-        </h2>
+      <section className="bg-[#111] border border-neutral-800/80 rounded-2xl p-6 shadow-2xl shadow-black/50 card-gold-glow transition-all duration-300">
+        {/* หัวข้อ section */}
+        <div className="flex items-center gap-3 mb-6">
+          <div className="bg-yellow-600/15 p-2 rounded-lg">
+            <UserPlus size={20} className="text-yellow-500" />
+          </div>
+          <h2 className="font-display text-xl font-bold text-white">{t.bookingTitle}</h2>
+        </div>
+        <div className="gold-line mb-6 opacity-40" />
+
         <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-12 gap-4">
           <div className="md:col-span-4">
-            <label className="block text-sm text-neutral-400 mb-1">{t.labelName}</label>
+            <label className="block text-xs font-medium text-neutral-500 mb-1.5 tracking-wider uppercase">{t.labelName}</label>
             <input
               type="text"
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
               placeholder={t.placeholderName}
-              className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-yellow-500"
+              className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-3 text-white placeholder-neutral-700 focus:outline-none focus:border-yellow-600/70 focus:ring-1 focus:ring-yellow-600/30 transition-all"
               required
             />
           </div>
           <div className="md:col-span-3">
-            <label className="block text-sm text-neutral-400 mb-1">{t.labelPhone}</label>
+            <label className="block text-xs font-medium text-neutral-500 mb-1.5 tracking-wider uppercase">{t.labelPhone}</label>
             <input
               type="tel"
               value={customerPhone}
               onChange={(e) => setCustomerPhone(e.target.value)}
               placeholder={t.placeholderPhone}
-              className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-yellow-500"
+              className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-3 text-white placeholder-neutral-700 focus:outline-none focus:border-yellow-600/70 focus:ring-1 focus:ring-yellow-600/30 transition-all"
               required
             />
           </div>
           <div className="md:col-span-3">
-            <label className="block text-sm text-neutral-400 mb-1">{t.labelBarber}</label>
+            <label className="block text-xs font-medium text-neutral-500 mb-1.5 tracking-wider uppercase">{t.labelBarber}</label>
             <select
               value={selectedBarber}
               onChange={(e) => setSelectedBarber(e.target.value)}
-              className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-yellow-500 appearance-none"
+              className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-yellow-600/70 focus:ring-1 focus:ring-yellow-600/30 transition-all appearance-none"
             >
               <option value="any">{t.anyBarber}</option>
               {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -90,70 +127,85 @@ export default function CustomerView({ barbers, onBook }) {
           <div className="md:col-span-2 flex items-end">
             <button
               type="submit"
-              className="w-full bg-yellow-600 hover:bg-yellow-500 text-black font-bold rounded-lg p-3 flex justify-center items-center transition-colors"
+              className="w-full bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-black font-bold rounded-lg py-3 transition-all duration-200 shadow-lg shadow-yellow-900/40 hover:shadow-yellow-700/50 active:scale-95"
             >
               {t.bookBtn}
             </button>
           </div>
         </form>
-        <div className="mt-4 flex items-center gap-2 text-xs text-neutral-500">
-          <Volume2 size={14} /> {t.voiceNote}
+
+        <div className="mt-5 flex items-center gap-2 text-xs text-neutral-700">
+          <Volume2 size={13} className="text-yellow-800" /> {t.voiceNote}
         </div>
       </section>
 
-      {/* สถานะคิวปัจจุบัน */}
+      {/* สถานะคิว */}
       <section>
-        <h2 className="text-xl font-semibold mb-6 flex items-center gap-2 text-white">
-          <Clock className="text-yellow-500" /> {t.queueTitle}
-        </h2>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="bg-yellow-600/15 p-2 rounded-lg">
+            <Clock size={20} className="text-yellow-500" />
+          </div>
+          <h2 className="font-display text-xl font-bold text-white">{t.queueTitle}</h2>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {barbers.map(barber => (
-            <div key={barber.id} className="bg-neutral-800 border border-neutral-700 rounded-xl p-5 flex flex-col h-full">
-              <div className="flex justify-between items-start mb-4 border-b border-neutral-700 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-neutral-700 rounded-full flex items-center justify-center text-xl">🧑🏻‍🦱</div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white">{barber.name}</h3>
-                    {barber.currentCustomer ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400 bg-red-400/10 px-2 py-1 rounded-full mt-1">
-                        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                        {t.serving}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-full mt-1">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                        {t.available}
-                      </span>
-                    )}
-                  </div>
+            <div
+              key={barber.id}
+              className="bg-[#111] border border-neutral-800/80 rounded-xl p-5 flex flex-col h-full card-gold-glow transition-all duration-300"
+            >
+              {/* หัวช่าง */}
+              <div className="flex items-center gap-3 mb-4 pb-4 border-b border-neutral-800/80">
+                <div className="w-11 h-11 bg-gradient-to-br from-neutral-800 to-neutral-900 rounded-full flex items-center justify-center text-lg border border-neutral-700/50 shadow-inner">
+                  🧑🏻‍🦱
+                </div>
+                <div>
+                  <h3 className="font-semibold text-white">{barber.name}</h3>
+                  {barber.currentCustomer ? (
+                    <span className="inline-flex items-center gap-1.5 text-xs text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full mt-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                      {t.serving}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full mt-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      {t.available}
+                    </span>
+                  )}
                 </div>
               </div>
 
+              {/* ลูกค้าปัจจุบัน */}
               <div className="flex-grow">
                 {barber.currentCustomer ? (
                   <div className="mb-4">
-                    <p className="text-sm text-neutral-400 mb-1">{t.cuttingNow}</p>
-                    <div className="bg-neutral-900 rounded-lg p-3 flex items-center gap-3 border-l-4 border-yellow-500">
-                      <User size={18} className="text-yellow-600" />
-                      <span className="font-medium text-white">{barber.currentCustomer.name}</span>
+                    <p className="text-xs font-medium text-neutral-600 uppercase tracking-wider mb-2">{t.cuttingNow}</p>
+                    <div className="bg-neutral-950 rounded-lg px-4 py-3 flex items-center gap-3 border-l-2 border-yellow-600">
+                      <User size={16} className="text-yellow-600 shrink-0" />
+                      <span className="font-semibold text-white text-sm">{barber.currentCustomer.name}</span>
                     </div>
                   </div>
                 ) : (
-                  <div className="mb-4 text-center py-4 text-neutral-500">{t.noCustomer}</div>
+                  <div className="mb-4 py-5 text-center text-neutral-700 text-sm border border-dashed border-neutral-800 rounded-lg">
+                    {t.noCustomer}
+                  </div>
                 )}
 
+                {/* คิวรอ */}
                 {barber.queue.length > 0 && (
                   <div>
-                    <p className="text-sm text-neutral-400 mb-2">{t.queueWaiting(barber.queue.length)}</p>
+                    <p className="text-xs font-medium text-neutral-600 uppercase tracking-wider mb-2">{t.queueWaiting(barber.queue.length)}</p>
                     <div className="space-y-2">
                       {barber.queue.map((q, index) => (
-                        <div key={q.id} className="bg-neutral-900/50 rounded-lg p-3 text-sm flex flex-col gap-1 border border-neutral-800">
+                        <div key={q.id} className="bg-neutral-950/70 rounded-lg px-3 py-2.5 flex flex-col gap-1 border border-neutral-800/60">
                           <div className="flex items-center gap-2">
-                            <span className="bg-neutral-700 text-white w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold">{index + 1}</span>
-                            <span className="font-medium text-neutral-200">{q.name}</span>
+                            <span className="bg-yellow-700/30 text-yellow-500 border border-yellow-700/40 w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold shrink-0">
+                              {index + 1}
+                            </span>
+                            <span className="font-medium text-neutral-200 text-sm">{q.name}</span>
                           </div>
-                          <div className="pl-7 text-xs text-yellow-600/80 flex items-center gap-1">
-                            <Info size={12} /> {getEstimatedTime(index)}
+                          <div className="pl-7 text-xs text-neutral-600 flex items-center gap-1">
+                            <Info size={11} className="text-yellow-800" /> {getEstimatedTime(index)}
                           </div>
                         </div>
                       ))}

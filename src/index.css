@@ -1,3 +1,44 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  body {
+    background-color: #0a0a0a;
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: 'Playfair Display', serif;
+  }
+
+  /* texture ลายแนวตั้งจางๆ เหมือนผนังร้าน Barber */
+  .barber-texture {
+    background-image: repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 40px,
+      rgba(255, 255, 255, 0.012) 40px,
+      rgba(255, 255, 255, 0.012) 41px
+    );
+  }
+
+  /* เส้นทองตกแต่ง */
+  .gold-line {
+    background: linear-gradient(90deg, transparent, #ca8a04, transparent);
+    height: 1px;
+  }
+
+  /* glow สีทองรอบ card */
+  .card-gold-glow {
+    box-shadow: 0 0 0 1px rgba(202, 138, 4, 0.15), 0 4px 24px rgba(0,0,0,0.6);
+  }
+
+  .card-gold-glow:hover {
+    box-shadow: 0 0 0 1px rgba(202, 138, 4, 0.35), 0 8px 32px rgba(0,0,0,0.7);
+  }
+}
