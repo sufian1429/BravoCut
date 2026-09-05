@@ -14,8 +14,6 @@ export default function App() {
     { id: 4, name: 'ช่างดี (D)', currentCustomer: null, queue: [] },
   ]);
 
-  // speak() ต้องถูกเรียกโดยตรงใน event handler (synchronous)
-  // ห้ามเรียกใน callback ของ setState เพราะ browser จะบล็อกเสียง (Autoplay Policy)
   const speak = (text) => {
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
@@ -27,7 +25,7 @@ export default function App() {
     const doSpeak = () => {
       const voices = window.speechSynthesis.getVoices();
       const thFemale = voices.find(v => v.lang.startsWith('th') && v.name.toLowerCase().includes('female'));
-      const thAny = voices.find(v => v.lang.startsWith('th'));
+      const thAny    = voices.find(v => v.lang.startsWith('th'));
       const enFemale = voices.find(v =>
         v.lang.startsWith('en') &&
         (v.name.includes('Female') || v.name.includes('Samantha') || v.name.includes('Karen') || v.name.includes('Zira'))
@@ -39,8 +37,8 @@ export default function App() {
     else window.speechSynthesis.onvoiceschanged = doSpeak;
   };
 
-  const handleBook = ({ name, phone, barberId }) => {
-    // 1. คำนวณ targetBarberId ก่อน
+  const handleBook = ({ name, phone, barberId, isNextDay }) => {
+    // 1. คำนวณ targetBarberId
     let targetBarberId = barberId;
     if (targetBarberId === 'any') {
       const freeBarber = barbers.find(b => !b.currentCustomer);
@@ -54,17 +52,20 @@ export default function App() {
     }
     targetBarberId = parseInt(targetBarberId);
 
-    // 2. เรียก speak() ก่อน setState ทันที — ยังอยู่ใน event handler
+    // 2. speak() ก่อน setState — ต้องอยู่ใน synchronous event handler
     const targetBarber = barbers.find(b => b.id === targetBarberId);
     if (targetBarber) {
-      if (!targetBarber.currentCustomer) {
+      if (isNextDay) {
+        // จองนอกเวลา → แจ้งว่าเป็นวันพรุ่งนี้
+        speak(`จองคิวสำเร็จค่ะ คุณ ${name} จะตัดกับ ${targetBarber.name} ในวันพรุ่งนี้ค่ะ`);
+      } else if (!targetBarber.currentCustomer) {
         speak(`มีการจองคิวใหม่ คุณ ${name} ตัดกับ ${targetBarber.name} ไม่มีคิว เชิญตัดได้เลยค่ะ`);
       } else {
         speak(`มีการจองคิวใหม่ คุณ ${name} ตัดกับ ${targetBarber.name} ได้คิวที่ ${targetBarber.queue.length + 1} ค่ะ`);
       }
     }
 
-    // 3. อัปเดต state หลัง speak()
+    // 3. อัปเดต state
     setBarbers(prev => prev.map(barber => {
       if (barber.id !== targetBarberId) return barber;
       if (!barber.currentCustomer) {
@@ -76,15 +77,10 @@ export default function App() {
   };
 
   const handleFinish = (barberId) => {
-    // 1. หาข้อมูลก่อน
     const targetBarber = barbers.find(b => b.id === barberId);
-
-    // 2. เรียก speak() ก่อน setState ทันที — ยังอยู่ใน event handler
     if (targetBarber?.queue.length > 0) {
       speak(`เชิญคิวต่อไป คุณ ${targetBarber.queue[0].name} ที่ ${targetBarber.name} ค่ะ`);
     }
-
-    // 3. อัปเดต state หลัง speak()
     setBarbers(prev => prev.map(barber => {
       if (barber.id !== barberId) return barber;
       if (barber.queue.length > 0) {

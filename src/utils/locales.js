@@ -1,5 +1,4 @@
 // src/utils/locales.js
-// ไฟล์เก็บข้อความทุกภาษาสำหรับหน้าลูกค้า
 
 export const locales = {
   th: {
@@ -22,6 +21,12 @@ export const locales = {
     queueWaiting: (n) => `คิวรอถัดไป (${n})`,
     estimatedTime: (time) => `ประเมินเวลาได้ตัด: ${time} น.`,
     locale: 'th-TH',
+    // เวลาทำการ
+    shopHours: 'เปิด 10:00 – 21:00 น.',
+    afterHoursBanner: (date) => `⚠️ ขณะนี้นอกเวลาทำการ — คิวนี้จะถูกจองสำหรับวันที่ ${date}`,
+    barberFullNearClose: 'รับไม่ทัน (ใกล้ปิด)',
+    barberFull: 'คิวเต็ม',
+    nextDayNote: 'จองวันถัดไป',
   },
   en: {
     flag: '🇬🇧',
@@ -43,6 +48,11 @@ export const locales = {
     queueWaiting: (n) => `Next in queue (${n})`,
     estimatedTime: (time) => `Est. time: ${time}`,
     locale: 'en-US',
+    shopHours: 'Open 10:00 – 21:00',
+    afterHoursBanner: (date) => `⚠️ Outside business hours — this booking will be for ${date}`,
+    barberFullNearClose: 'No time left (near close)',
+    barberFull: 'Queue full',
+    nextDayNote: 'Next-day booking',
   },
   zh: {
     flag: '🇨🇳',
@@ -64,6 +74,11 @@ export const locales = {
     queueWaiting: (n) => `等待队列 (${n})`,
     estimatedTime: (time) => `预计时间: ${time}`,
     locale: 'zh-CN',
+    shopHours: '营业时间 10:00 – 21:00',
+    afterHoursBanner: (date) => `⚠️ 当前非营业时间 — 将为 ${date} 预约`,
+    barberFullNearClose: '临近打烊，无法接待',
+    barberFull: '排队已满',
+    nextDayNote: '次日预约',
   },
   ru: {
     flag: '🇷🇺',
@@ -85,5 +100,10 @@ export const locales = {
     queueWaiting: (n) => `Следующие в очереди (${n})`,
     estimatedTime: (time) => `Ожидаемое время: ${time}`,
     locale: 'ru-RU',
+    shopHours: 'Открыто 10:00 – 21:00',
+    afterHoursBanner: (date) => `⚠️ Нерабочее время — запись будет на ${date}`,
+    barberFullNearClose: 'Не успеет (скоро закрытие)',
+    barberFull: 'Очередь занята',
+    nextDayNote: 'Запись на следующий день',
   },
 };
