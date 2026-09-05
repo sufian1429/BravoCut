@@ -100,7 +100,7 @@ export default function App() {
       <footer className="mt-8 pb-6 text-center">
         <div className="h-px max-w-xs mx-auto mb-4" style={{ background: t.dividerLine }} />
         <p className="text-xs tracking-widest uppercase" style={{ color: t.footerText }}>
-          Bravo Cut © 2025
+          Bravo Cut © 2026
         </p>
       </footer>
     </div>
