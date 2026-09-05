@@ -12,13 +12,43 @@ export default function App() {
     { id: 4, name: 'ช่างดี (D)', currentCustomer: null, queue: [] },
   ]);
 
-  // ฟังก์ชันเสียงประกาศ
+  // ฟังก์ชันเสียงประกาศ (เสียงเด็กผู้หญิง)
   const speak = (text) => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'th-TH';
-      utterance.rate = 0.9;
+    if (!('speechSynthesis' in window)) return;
+
+    // หยุดเสียงเก่าก่อน แล้วค่อยพูดใหม่
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'th-TH';
+    utterance.rate = 0.9;
+    utterance.pitch = 1.8;   // เสียงสูงขึ้น (0 = ต่ำ, 2 = สูงสุด)
+    utterance.volume = 1;
+
+    const setVoice = () => {
+      const voices = window.speechSynthesis.getVoices();
+
+      // หาเสียงผู้หญิงภาษาไทยก่อน
+      const thFemale = voices.find(v =>
+        v.lang.startsWith('th') && v.name.toLowerCase().includes('female')
+      );
+      // ถ้าไม่มี ใช้เสียงไทยทั่วไป
+      const thAny = voices.find(v => v.lang.startsWith('th'));
+      // ถ้าไม่มีเสียงไทยเลย ใช้เสียงผู้หญิงภาษาอังกฤษ
+      const enFemale = voices.find(v =>
+        v.lang.startsWith('en') &&
+        (v.name.includes('Female') || v.name.includes('Samantha') || v.name.includes('Karen') || v.name.includes('Zira'))
+      );
+
+      utterance.voice = thFemale || thAny || enFemale || null;
       window.speechSynthesis.speak(utterance);
+    };
+
+    // voices อาจยังโหลดไม่เสร็จตอน mount
+    if (window.speechSynthesis.getVoices().length > 0) {
+      setVoice();
+    } else {
+      window.speechSynthesis.onvoiceschanged = setVoice;
     }
   };
 
@@ -78,18 +108,15 @@ export default function App() {
     setBarbers(updatedBarbers);
   };
 
-  // ในไฟล์ src/App.jsx ตรงส่วน return ให้แก้ className เป็นแบบนี้:
-return (
-  <div className="min-h-screen bg-neutral-900 text-neutral-200 font-sans">
-    <Navbar viewMode={viewMode} setViewMode={setViewMode} />
-    
-    {/* เพิ่ม animate-fade-in เพื่อให้หน้าจอค่อยๆ ปรากฏขึ้นมาอย่างนุ่มนวล */}
-    <main className="max-w-4xl mx-auto p-4 py-8 animate-fade-in">
-      {viewMode === 'customer' 
-        ? <CustomerView barbers={barbers} onBook={handleBook} />
-        : <BarberView barbers={barbers} onFinish={handleFinish} />
-      }
-    </main>
-  </div>
-);
+  return (
+    <div className="min-h-screen bg-neutral-900 text-neutral-200 font-sans">
+      <Navbar viewMode={viewMode} setViewMode={setViewMode} />
+      <main className="max-w-4xl mx-auto p-4 py-8 animate-fade-in">
+        {viewMode === 'customer'
+          ? <CustomerView barbers={barbers} onBook={handleBook} />
+          : <BarberView barbers={barbers} onFinish={handleFinish} />
+        }
+      </main>
+    </div>
+  );
 }
