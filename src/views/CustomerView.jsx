@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { User, Clock, Volume2, UserPlus, Info, Globe, ChevronDown } from 'lucide-react';
 import { locales } from '../utils/locales';
 
-export default function CustomerView({ barbers, onBook }) {
+export default function CustomerView({ barbers, onBook, theme }) {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [selectedBarber, setSelectedBarber] = useState('any');
@@ -11,6 +11,7 @@ export default function CustomerView({ barbers, onBook }) {
   const dropdownRef = useRef(null);
 
   const t = locales[lang];
+  const th = theme;
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -22,14 +23,11 @@ export default function CustomerView({ barbers, onBook }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSelectLang = (key) => { setLang(key); setDropdownOpen(false); };
-
   const getEstimatedTime = (queueIndex) => {
-    const avgMinutesPerCut = 40;
-    const waitMinutes = (queueIndex + 1) * avgMinutesPerCut;
-    const estimateDate = new Date();
-    estimateDate.setMinutes(estimateDate.getMinutes() + waitMinutes);
-    const timeStr = estimateDate.toLocaleTimeString(t.locale, { hour: '2-digit', minute: '2-digit' });
+    const waitMinutes = (queueIndex + 1) * 40;
+    const d = new Date();
+    d.setMinutes(d.getMinutes() + waitMinutes);
+    const timeStr = d.toLocaleTimeString(t.locale, { hour: '2-digit', minute: '2-digit' });
     return t.estimatedTime(timeStr);
   };
 
@@ -41,36 +39,49 @@ export default function CustomerView({ barbers, onBook }) {
     setCustomerPhone('');
   };
 
-  return (
-    <div className="space-y-8">
+  const inputStyle = {
+    backgroundColor: th.inputBg,
+    border: `1px solid ${th.inputBorder}`,
+    color: th.pageText,
+    width: '100%',
+    borderRadius: '0.5rem',
+    padding: '0.65rem 1rem',
+    outline: 'none',
+    fontSize: '16px', // ป้องกัน iOS zoom เมื่อ focus input
+  };
 
-      {/* Dropdown ภาษา */}
+  return (
+    <div className="space-y-5">
+
+      {/* ── Language picker ── */}
       <div className="flex justify-end">
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="flex items-center gap-2 px-4 py-2 bg-neutral-900 border border-neutral-800 hover:border-yellow-700/60 rounded-lg text-sm font-medium text-neutral-300 transition-all duration-200"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all"
+            style={{ backgroundColor: th.inputBg, border: `1px solid ${th.inputBorder}`, color: th.pageText }}
           >
-            <Globe size={14} className="text-yellow-600" />
+            <Globe size={13} style={{ color: th.accent }} />
             <span>{locales[lang].flag} {locales[lang].label}</span>
-            <ChevronDown size={13} className={`text-neutral-500 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown size={12} style={{ color: th.pageText + '60' }}
+              className={`transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} />
           </button>
 
           {dropdownOpen && (
-            <div className="absolute right-0 mt-2 w-44 bg-[#111] border border-neutral-800 rounded-xl shadow-2xl shadow-black/60 z-50 overflow-hidden animate-slide-up">
-              {/* เส้นทองหัว dropdown */}
-              <div className="h-[1px] bg-gradient-to-r from-transparent via-yellow-700 to-transparent" />
+            <div className="absolute right-0 mt-1.5 w-40 rounded-xl shadow-2xl z-50 overflow-hidden"
+              style={{ backgroundColor: th.cardBg, border: `1px solid ${th.cardBorder}` }}>
+              <div className="h-px" style={{ background: th.dividerLine }} />
               {Object.entries(locales).map(([key, val]) => (
                 <button
                   key={key}
-                  onClick={() => handleSelectLang(key)}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
-                    lang === key
-                      ? 'bg-gradient-to-r from-yellow-700/30 to-transparent text-yellow-400 font-semibold border-l-2 border-yellow-500'
-                      : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
-                  }`}
+                  onClick={() => { setLang(key); setDropdownOpen(false); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors"
+                  style={lang === key
+                    ? { backgroundColor: `${th.accent}20`, color: th.accent, fontWeight: 600, borderLeft: `2px solid ${th.accent}` }
+                    : { color: th.pageText + 'aa' }
+                  }
                 >
-                  <span className="text-base">{val.flag}</span>
+                  <span>{val.flag}</span>
                   <span>{val.label}</span>
                 </button>
               ))}
@@ -79,96 +90,123 @@ export default function CustomerView({ barbers, onBook }) {
         </div>
       </div>
 
-      {/* ฟอร์มจองคิว */}
-      <section className="bg-[#111] border border-neutral-800/80 rounded-2xl p-6 shadow-2xl shadow-black/50 card-gold-glow transition-all duration-300">
-        {/* หัวข้อ section */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="bg-yellow-600/15 p-2 rounded-lg">
-            <UserPlus size={20} className="text-yellow-500" />
-          </div>
-          <h2 className="font-display text-xl font-bold text-white">{t.bookingTitle}</h2>
-        </div>
-        <div className="gold-line mb-6 opacity-40" />
+      {/* ── Booking form ── */}
+      <section className="rounded-2xl p-4 sm:p-6 shadow-lg transition-all duration-300"
+        style={{ backgroundColor: th.cardBg, border: `1px solid ${th.cardBorder}`, boxShadow: th.cardGlow }}>
 
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-12 gap-4">
-          <div className="md:col-span-4">
-            <label className="block text-xs font-medium text-neutral-500 mb-1.5 tracking-wider uppercase">{t.labelName}</label>
-            <input
-              type="text"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              placeholder={t.placeholderName}
-              className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-3 text-white placeholder-neutral-700 focus:outline-none focus:border-yellow-600/70 focus:ring-1 focus:ring-yellow-600/30 transition-all"
-              required
-            />
+        <div className="flex items-center gap-2.5 mb-4">
+          <div className="p-1.5 rounded-lg" style={{ backgroundColor: `${th.accent}20` }}>
+            <UserPlus size={18} style={{ color: th.accent }} />
           </div>
-          <div className="md:col-span-3">
-            <label className="block text-xs font-medium text-neutral-500 mb-1.5 tracking-wider uppercase">{t.labelPhone}</label>
-            <input
-              type="tel"
-              value={customerPhone}
-              onChange={(e) => setCustomerPhone(e.target.value)}
-              placeholder={t.placeholderPhone}
-              className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-3 text-white placeholder-neutral-700 focus:outline-none focus:border-yellow-600/70 focus:ring-1 focus:ring-yellow-600/30 transition-all"
-              required
-            />
+          <h2 className="font-display text-lg font-bold" style={{ color: th.pageText }}>{t.bookingTitle}</h2>
+        </div>
+        <div className="h-px mb-4 opacity-40" style={{ background: th.dividerLine }} />
+
+        {/* form — stacked บน mobile, grid บน desktop */}
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* ชื่อ */}
+            <div>
+              <label className="block text-xs font-medium mb-1.5 tracking-wide uppercase"
+                style={{ color: th.pageText + '60' }}>{t.labelName}</label>
+              <input
+                type="text"
+                value={customerName}
+                onChange={e => setCustomerName(e.target.value)}
+                placeholder={t.placeholderName}
+                style={inputStyle}
+                required
+              />
+            </div>
+            {/* เบอร์ */}
+            <div>
+              <label className="block text-xs font-medium mb-1.5 tracking-wide uppercase"
+                style={{ color: th.pageText + '60' }}>{t.labelPhone}</label>
+              <input
+                type="tel"
+                value={customerPhone}
+                onChange={e => setCustomerPhone(e.target.value)}
+                placeholder={t.placeholderPhone}
+                style={inputStyle}
+                required
+              />
+            </div>
           </div>
-          <div className="md:col-span-3">
-            <label className="block text-xs font-medium text-neutral-500 mb-1.5 tracking-wider uppercase">{t.labelBarber}</label>
-            <select
-              value={selectedBarber}
-              onChange={(e) => setSelectedBarber(e.target.value)}
-              className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-yellow-600/70 focus:ring-1 focus:ring-yellow-600/30 transition-all appearance-none"
-            >
-              <option value="any">{t.anyBarber}</option>
-              {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* เลือกช่าง */}
+            <div>
+              <label className="block text-xs font-medium mb-1.5 tracking-wide uppercase"
+                style={{ color: th.pageText + '60' }}>{t.labelBarber}</label>
+              <select
+                value={selectedBarber}
+                onChange={e => setSelectedBarber(e.target.value)}
+                style={{ ...inputStyle, appearance: 'none' }}
+              >
+                <option value="any">{t.anyBarber}</option>
+                {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            </div>
+            {/* ปุ่มจอง */}
+            <div className="flex items-end">
+              <button
+                type="submit"
+                className="w-full font-bold rounded-lg py-3 transition-all duration-200 active:scale-95"
+                style={{
+                  background: `linear-gradient(135deg,${th.accentFrom},${th.accentTo})`,
+                  color: th.accentText,
+                  fontSize: '15px',
+                  boxShadow: `0 4px 14px ${th.accentShadow}`,
+                }}
+              >
+                {t.bookBtn}
+              </button>
+            </div>
           </div>
-          <div className="md:col-span-2 flex items-end">
-            <button
-              type="submit"
-              className="w-full bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-black font-bold rounded-lg py-3 transition-all duration-200 shadow-lg shadow-yellow-900/40 hover:shadow-yellow-700/50 active:scale-95"
-            >
-              {t.bookBtn}
-            </button>
+
+          <div className="flex items-center gap-1.5 text-xs" style={{ color: th.pageText + '40' }}>
+            <Volume2 size={12} style={{ color: th.accent + '70' }} />
+            {t.voiceNote}
           </div>
         </form>
-
-        <div className="mt-5 flex items-center gap-2 text-xs text-neutral-700">
-          <Volume2 size={13} className="text-yellow-800" /> {t.voiceNote}
-        </div>
       </section>
 
-      {/* สถานะคิว */}
+      {/* ── Queue status ── */}
       <section>
-        <div className="flex items-center gap-3 mb-6">
-          <div className="bg-yellow-600/15 p-2 rounded-lg">
-            <Clock size={20} className="text-yellow-500" />
+        <div className="flex items-center gap-2.5 mb-4">
+          <div className="p-1.5 rounded-lg" style={{ backgroundColor: `${th.accent}20` }}>
+            <Clock size={18} style={{ color: th.accent }} />
           </div>
-          <h2 className="font-display text-xl font-bold text-white">{t.queueTitle}</h2>
+          <h2 className="font-display text-lg font-bold" style={{ color: th.pageText }}>{t.queueTitle}</h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* 1 col mobile, 2 col tablet+ */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {barbers.map(barber => (
-            <div
-              key={barber.id}
-              className="bg-[#111] border border-neutral-800/80 rounded-xl p-5 flex flex-col h-full card-gold-glow transition-all duration-300"
-            >
+            <div key={barber.id}
+              className="rounded-xl p-4 flex flex-col transition-all duration-300"
+              style={{ backgroundColor: th.cardBg, border: `1px solid ${th.cardBorder}`, boxShadow: th.cardGlow }}>
+
               {/* หัวช่าง */}
-              <div className="flex items-center gap-3 mb-4 pb-4 border-b border-neutral-800/80">
-                <div className="w-11 h-11 bg-gradient-to-br from-neutral-800 to-neutral-900 rounded-full flex items-center justify-center text-lg border border-neutral-700/50 shadow-inner">
+              <div className="flex items-center gap-3 pb-3 mb-3"
+                style={{ borderBottom: `1px solid ${th.cardBorder}` }}>
+                <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0"
+                  style={{ backgroundColor: th.inputBg, border: `1px solid ${th.inputBorder}` }}>
                   🧑🏻‍🦱
                 </div>
-                <div>
-                  <h3 className="font-semibold text-white">{barber.name}</h3>
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-sm truncate" style={{ color: th.pageText }}>{barber.name}</h3>
                   {barber.currentCustomer ? (
-                    <span className="inline-flex items-center gap-1.5 text-xs text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full mt-0.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                    <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full mt-0.5"
+                      style={{ color: th.servingColor, backgroundColor: th.servingBg, border: `1px solid ${th.servingBorder}` }}>
+                      <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: th.servingColor }} />
                       {t.serving}
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full mt-0.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full mt-0.5"
+                      style={{ color: th.availColor, backgroundColor: th.availBg, border: `1px solid ${th.availBorder}` }}>
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: th.availColor }} />
                       {t.available}
                     </span>
                   )}
@@ -178,34 +216,42 @@ export default function CustomerView({ barbers, onBook }) {
               {/* ลูกค้าปัจจุบัน */}
               <div className="flex-grow">
                 {barber.currentCustomer ? (
-                  <div className="mb-4">
-                    <p className="text-xs font-medium text-neutral-600 uppercase tracking-wider mb-2">{t.cuttingNow}</p>
-                    <div className="bg-neutral-950 rounded-lg px-4 py-3 flex items-center gap-3 border-l-2 border-yellow-600">
-                      <User size={16} className="text-yellow-600 shrink-0" />
-                      <span className="font-semibold text-white text-sm">{barber.currentCustomer.name}</span>
+                  <div className="mb-3">
+                    <p className="text-xs uppercase tracking-wide mb-1.5"
+                      style={{ color: th.pageText + '50' }}>{t.cuttingNow}</p>
+                    <div className="rounded-lg px-3 py-2.5 flex items-center gap-2"
+                      style={{ backgroundColor: th.inputBg, borderLeft: `2px solid ${th.accent}` }}>
+                      <User size={14} style={{ color: th.accent }} className="shrink-0" />
+                      <span className="font-semibold text-sm truncate" style={{ color: th.pageText }}>
+                        {barber.currentCustomer.name}
+                      </span>
                     </div>
                   </div>
                 ) : (
-                  <div className="mb-4 py-5 text-center text-neutral-700 text-sm border border-dashed border-neutral-800 rounded-lg">
+                  <div className="mb-3 py-4 text-center text-xs rounded-lg"
+                    style={{ color: th.pageText + '35', border: `1px dashed ${th.cardBorder}` }}>
                     {t.noCustomer}
                   </div>
                 )}
 
-                {/* คิวรอ */}
                 {barber.queue.length > 0 && (
                   <div>
-                    <p className="text-xs font-medium text-neutral-600 uppercase tracking-wider mb-2">{t.queueWaiting(barber.queue.length)}</p>
-                    <div className="space-y-2">
+                    <p className="text-xs uppercase tracking-wide mb-1.5"
+                      style={{ color: th.pageText + '50' }}>{t.queueWaiting(barber.queue.length)}</p>
+                    <div className="space-y-1.5">
                       {barber.queue.map((q, index) => (
-                        <div key={q.id} className="bg-neutral-950/70 rounded-lg px-3 py-2.5 flex flex-col gap-1 border border-neutral-800/60">
+                        <div key={q.id} className="rounded-lg px-3 py-2 flex flex-col gap-1"
+                          style={{ backgroundColor: th.inputBg, border: `1px solid ${th.cardBorder}` }}>
                           <div className="flex items-center gap-2">
-                            <span className="bg-yellow-700/30 text-yellow-500 border border-yellow-700/40 w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold shrink-0">
+                            <span className="w-5 h-5 flex items-center justify-center rounded-full text-[11px] font-bold shrink-0"
+                              style={{ backgroundColor: th.badgeBg, color: th.badgeText, border: `1px solid ${th.badgeBorder}` }}>
                               {index + 1}
                             </span>
-                            <span className="font-medium text-neutral-200 text-sm">{q.name}</span>
+                            <span className="font-medium text-sm truncate" style={{ color: th.pageText }}>{q.name}</span>
                           </div>
-                          <div className="pl-7 text-xs text-neutral-600 flex items-center gap-1">
-                            <Info size={11} className="text-yellow-800" /> {getEstimatedTime(index)}
+                          <div className="pl-7 text-xs flex items-center gap-1" style={{ color: th.pageText + '45' }}>
+                            <Info size={10} style={{ color: th.accent + '70' }} />
+                            {getEstimatedTime(index)}
                           </div>
                         </div>
                       ))}

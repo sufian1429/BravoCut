@@ -6,7 +6,7 @@ import { themes } from './utils/themes';
 
 export default function App() {
   const [viewMode, setViewMode] = useState('customer');
-  const [theme, setTheme] = useState(themes.darkGold);
+  const [theme, setTheme] = useState(themes.pureWhite); // ✅ default = Pure White
   const [barbers, setBarbers] = useState([
     { id: 1, name: 'ช่างเอ (A)', currentCustomer: null, queue: [] },
     { id: 2, name: 'ช่างบี (B)', currentCustomer: null, queue: [] },
@@ -77,7 +77,8 @@ export default function App() {
   const t = theme;
 
   return (
-    <div className="min-h-screen transition-colors duration-300"
+    <div
+      className="min-h-screen transition-colors duration-300"
       style={{
         backgroundColor: t.pageBg,
         color: t.pageText,
@@ -89,14 +90,14 @@ export default function App() {
     >
       <Navbar viewMode={viewMode} setViewMode={setViewMode} theme={theme} setTheme={setTheme} />
 
-      <main className="max-w-4xl mx-auto px-4 py-8 animate-fade-in">
+      <main className="w-full max-w-3xl mx-auto px-3 sm:px-6 py-5 sm:py-8">
         {viewMode === 'customer'
           ? <CustomerView barbers={barbers} onBook={handleBook} theme={theme} />
           : <BarberView barbers={barbers} onFinish={handleFinish} theme={theme} />
         }
       </main>
 
-      <footer className="mt-12 pb-6 text-center">
+      <footer className="mt-8 pb-6 text-center">
         <div className="h-px max-w-xs mx-auto mb-4" style={{ background: t.dividerLine }} />
         <p className="text-xs tracking-widest uppercase" style={{ color: t.footerText }}>
           Bravo Cut © 2025

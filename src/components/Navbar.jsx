@@ -6,63 +6,74 @@ export default function Navbar({ viewMode, setViewMode, theme, setTheme }) {
   const [showThemePicker, setShowThemePicker] = useState(false);
   const t = theme;
 
+  const categories = [...new Set(themeList.map(th => th.category))];
+
   return (
     <>
-      <nav style={{ backgroundColor: t.navBg, borderBottomColor: t.navBorder }}
-        className="border-b sticky top-0 z-40">
-        {/* เส้น accent บนสุด */}
+      <nav
+        style={{ backgroundColor: t.navBg, borderBottomColor: t.navBorder }}
+        className="border-b sticky top-0 z-40"
+      >
         <div style={{ background: t.navTopLine }} className="h-[2px]" />
 
-        <div className="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center gap-3">
-          {/* Logo */}
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="relative">
+        <div className="w-full max-w-3xl mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between gap-2">
+
+          {/* ── Logo ── */}
+          <div className="flex items-center gap-2 shrink-0 min-w-0">
+            <div className="relative shrink-0">
               <div className="absolute inset-0 rounded-lg blur-md opacity-40"
                 style={{ backgroundColor: t.accent }} />
-              <div className="relative p-2 rounded-lg text-black shadow-lg"
+              <div className="relative p-1.5 sm:p-2 rounded-lg shadow-lg"
                 style={{ background: `linear-gradient(135deg, ${t.accentFrom}, ${t.accentTo})` }}>
-                <Scissors size={20} strokeWidth={2.5} style={{ color: t.accentText }} />
+                <Scissors size={16} strokeWidth={2.5} style={{ color: t.accentText }} />
               </div>
             </div>
-            <div>
-              <h1 className="font-display text-xl font-black tracking-widest leading-none"
-                style={{ background: `linear-gradient(90deg,${t.accentFrom},${t.accentTo})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            <div className="min-w-0">
+              <h1
+                className="font-display font-black tracking-widest leading-none text-base sm:text-xl truncate"
+                style={{ color: t.accentFrom }}
+              >
                 BRAVO CUT
               </h1>
-              <p className="text-[10px] tracking-[0.25em] uppercase" style={{ color: t.navSubtitle }}>
+              <p className="text-[9px] sm:text-[10px] tracking-[0.2em] uppercase hidden xs:block"
+                style={{ color: t.navSubtitle }}>
                 Premium Barber Shop
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* ปุ่มเปลี่ยนธีม */}
+          {/* ── Controls ── */}
+          <div className="flex items-center gap-1.5 shrink-0">
+
+            {/* ปุ่มธีม */}
             <button
               onClick={() => setShowThemePicker(true)}
-              title="เปลี่ยนธีม"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium transition-all duration-200 hover:opacity-80"
+              className="flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border text-xs font-medium transition-all hover:opacity-80"
               style={{ backgroundColor: `${t.accent}18`, borderColor: `${t.accent}40`, color: t.accent }}
             >
-              <Palette size={14} />
+              <Palette size={13} />
               <span className="hidden sm:inline">{t.emoji} {t.name}</span>
             </button>
 
             {/* Toggle โหมด */}
-            <div className="flex rounded-lg p-1 gap-1 border"
+            <div className="flex rounded-lg p-0.5 gap-0.5 border"
               style={{ backgroundColor: t.inputBg, borderColor: t.inputBorder }}>
-              {['customer', 'barber'].map((mode) => {
+              {[
+                { mode: 'customer', label: 'ลูกค้า' },
+                { mode: 'barber',   label: 'ช่าง'  },
+              ].map(({ mode, label }) => {
                 const active = viewMode === mode;
                 return (
                   <button
                     key={mode}
                     onClick={() => setViewMode(mode)}
-                    className="px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200"
+                    className="px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 whitespace-nowrap"
                     style={active
                       ? { background: `linear-gradient(90deg,${t.accentFrom},${t.accentTo})`, color: t.accentText, boxShadow: `0 2px 8px ${t.accentShadow}` }
                       : { color: t.pageText + '70' }
                     }
                   >
-                    {mode === 'customer' ? 'โหมดลูกค้า' : 'โหมดช่าง'}
+                    {label}
                   </button>
                 );
               })}
@@ -71,78 +82,87 @@ export default function Navbar({ viewMode, setViewMode, theme, setTheme }) {
         </div>
       </nav>
 
-      {/* Theme Picker Modal */}
+      {/* ── Theme Picker Modal ── */}
       {showThemePicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ backgroundColor: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+          style={{ backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
           onClick={() => setShowThemePicker(false)}
         >
+          {/* sheet: ลอยขึ้นจากล่างบน mobile, modal กลางจอบน desktop */}
           <div
-            className="w-full max-w-lg rounded-2xl p-6 shadow-2xl"
-            style={{ backgroundColor: t.cardBg, border: `1px solid ${t.cardBorder}` }}
-            onClick={(e) => e.stopPropagation()}
+            className="w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-4 sm:p-6 shadow-2xl"
+            style={{ backgroundColor: t.cardBg, border: `1px solid ${t.cardBorder}`, maxHeight: '85vh', overflowY: 'auto' }}
+            onClick={e => e.stopPropagation()}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between mb-5">
+            {/* drag handle (mobile) */}
+            <div className="w-10 h-1 rounded-full mx-auto mb-4 sm:hidden"
+              style={{ backgroundColor: t.pageText + '30' }} />
+
+            <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">
-                <Palette size={18} style={{ color: t.accent }} />
-                <h2 className="font-display text-lg font-bold" style={{ color: t.pageText }}>
-                  เลือกธีม
+                <Palette size={16} style={{ color: t.accent }} />
+                <h2 className="font-display text-base sm:text-lg font-bold" style={{ color: t.pageText }}>
+                  เลือกสไตล์ร้าน
                 </h2>
-                <span className="text-xs px-2 py-0.5 rounded-full"
-                  style={{ backgroundColor: `${t.accent}20`, color: t.accent }}>
-                  {themeList.length} ธีม
-                </span>
               </div>
               <button onClick={() => setShowThemePicker(false)}
-                className="p-1.5 rounded-lg transition-opacity hover:opacity-60"
-                style={{ color: t.pageText }}>
-                <X size={18} />
+                className="p-1.5 rounded-lg hover:opacity-60" style={{ color: t.pageText }}>
+                <X size={16} />
               </button>
             </div>
+            <p className="text-xs mb-4" style={{ color: t.pageText + '50' }}>
+              เลือกแนวธีมที่ตรงกับสไตล์ร้านของคุณ
+            </p>
+            <div className="h-px mb-4" style={{ background: t.dividerLine }} />
 
-            {/* divider */}
-            <div className="h-px mb-5" style={{ background: t.dividerLine }} />
+            <div className="space-y-4">
+              {categories.map(cat => (
+                <div key={cat}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs font-bold uppercase tracking-widest" style={{ color: t.accent }}>
+                      {cat}
+                    </span>
+                    <div className="flex-1 h-px" style={{ background: `${t.accent}30` }} />
+                  </div>
 
-            {/* Grid ธีม */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[60vh] overflow-y-auto pr-1">
-              {themeList.map((th) => {
-                const isActive = theme.id === th.id;
-                return (
-                  <button
-                    key={th.id}
-                    onClick={() => { setTheme(th); setShowThemePicker(false); }}
-                    className="relative rounded-xl p-4 text-left transition-all duration-200 hover:scale-[1.03] active:scale-95"
-                    style={{
-                      backgroundColor: th.cardBg,
-                      border: isActive
-                        ? `2px solid ${th.accent}`
-                        : `1px solid ${th.cardBorder}`,
-                      boxShadow: isActive ? th.cardGlowHover : th.cardGlow,
-                    }}
-                  >
-                    {/* Preview สี */}
-                    <div className="flex gap-1.5 mb-3">
-                      <div className="w-6 h-6 rounded-full shadow-inner"
-                        style={{ background: `linear-gradient(135deg,${th.accentFrom},${th.accentTo})` }} />
-                      <div className="w-6 h-6 rounded-full" style={{ backgroundColor: th.cardBg, border: `1px solid ${th.cardBorder}` }} />
-                      <div className="w-6 h-6 rounded-full" style={{ backgroundColor: th.inputBg, border: `1px solid ${th.inputBorder}` }} />
-                    </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {themeList.filter(th => th.category === cat).map(th => {
+                      const isActive = theme.id === th.id;
+                      return (
+                        <button
+                          key={th.id}
+                          onClick={() => { setTheme(th); setShowThemePicker(false); }}
+                          className="relative rounded-xl p-2.5 text-left transition-all duration-200 active:scale-95"
+                          style={{
+                            backgroundColor: th.cardBg,
+                            border: isActive ? `2px solid ${th.accent}` : `1px solid ${th.cardBorder}`,
+                            boxShadow: isActive ? `0 0 0 1px ${th.accent}40, 0 4px 16px rgba(0,0,0,0.4)` : th.cardGlow,
+                          }}
+                        >
+                          {/* แถบสี */}
+                          <div className="w-full h-1.5 rounded-full mb-2"
+                            style={{ background: `linear-gradient(90deg,${th.accentFrom},${th.accentTo})` }} />
+                          {/* preview dots */}
+                          <div className="flex gap-1 mb-2">
+                            <div className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: th.pageBg, border: `1px solid ${th.cardBorder}` }} />
+                            <div className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: th.cardBg, border: `1px solid ${th.cardBorder}` }} />
+                            <div className="w-3.5 h-3.5 rounded-full" style={{ background: `linear-gradient(135deg,${th.accentFrom},${th.accentTo})` }} />
+                          </div>
+                          <div className="text-sm leading-none mb-0.5">{th.emoji}</div>
+                          <div className="text-[11px] font-bold leading-tight" style={{ color: th.pageText }}>{th.name}</div>
+                          <div className="text-[10px] mt-0.5 leading-tight" style={{ color: th.pageText + '70' }}>{th.desc}</div>
 
-                    <div className="text-lg mb-0.5">{th.emoji}</div>
-                    <div className="text-sm font-bold" style={{ color: th.pageText }}>{th.name}</div>
-                    <div className="text-xs mt-0.5" style={{ color: th.pageText + '70' }}>{th.desc}</div>
-
-                    {/* Active badge */}
-                    {isActive && (
-                      <div className="absolute top-2 right-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                        style={{ backgroundColor: th.accent, color: th.accentText }}>
-                        ✓
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
+                          {isActive && (
+                            <div className="absolute top-1.5 right-1.5 w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-bold"
+                              style={{ backgroundColor: th.accent, color: th.accentText }}>✓</div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>

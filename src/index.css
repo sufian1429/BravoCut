@@ -27,18 +27,23 @@
     );
   }
 
-  /* เส้นทองตกแต่ง */
-  .gold-line {
-    background: linear-gradient(90deg, transparent, #ca8a04, transparent);
-    height: 1px;
+  /* Fade in animation */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
   }
 
-  /* glow สีทองรอบ card */
-  .card-gold-glow {
-    box-shadow: 0 0 0 1px rgba(202, 138, 4, 0.15), 0 4px 24px rgba(0,0,0,0.6);
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 
-  .card-gold-glow:hover {
-    box-shadow: 0 0 0 1px rgba(202, 138, 4, 0.35), 0 8px 32px rgba(0,0,0,0.7);
+  /* Slide up animation สำหรับ dropdown */
+  .animate-slide-up {
+    animation: slideUp 0.15s ease-out;
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 }
