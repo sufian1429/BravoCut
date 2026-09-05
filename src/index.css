@@ -5,9 +5,20 @@
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@300;400;500;600;700&display=swap');
 
 @layer base {
+  /* ป้องกัน iOS bounce scroll และ font scaling */
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
   body {
-    background-color: #0a0a0a;
     font-family: 'Inter', sans-serif;
+    /* ป้องกัน horizontal scroll บน mobile */
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+  /* ป้องกัน input zoom บน iOS (ต้องการ font-size ≥ 16px) */
+  input, select, textarea {
+    font-size: 16px;
   }
 }
 
@@ -15,35 +26,21 @@
   .font-display {
     font-family: 'Playfair Display', serif;
   }
-
-  /* texture ลายแนวตั้งจางๆ เหมือนผนังร้าน Barber */
   .barber-texture {
     background-image: repeating-linear-gradient(
       90deg,
-      transparent,
-      transparent 40px,
-      rgba(255, 255, 255, 0.012) 40px,
-      rgba(255, 255, 255, 0.012) 41px
+      transparent, transparent 40px,
+      rgba(255,255,255,0.012) 40px,
+      rgba(255,255,255,0.012) 41px
     );
   }
+}
 
-  /* Fade in animation */
-  .animate-fade-in {
-    animation: fadeIn 0.3s ease-in-out;
-  }
-
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(8px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  /* Slide up animation สำหรับ dropdown */
-  .animate-slide-up {
-    animation: slideUp 0.15s ease-out;
-  }
-
-  @keyframes slideUp {
-    from { opacity: 0; transform: translateY(-6px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
+/* Tailwind animation */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fadeIn 0.35s ease-out both;
 }

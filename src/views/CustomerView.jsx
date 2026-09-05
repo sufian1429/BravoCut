@@ -3,32 +3,27 @@ import { User, Clock, Volume2, UserPlus, Info, Globe, ChevronDown } from 'lucide
 import { locales } from '../utils/locales';
 
 export default function CustomerView({ barbers, onBook, theme }) {
-  const [customerName, setCustomerName] = useState('');
+  const [customerName, setCustomerName]   = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [selectedBarber, setSelectedBarber] = useState('any');
-  const [lang, setLang] = useState('th');
+  const [lang, setLang]               = useState('th');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  const t = locales[lang];
-  const th = theme;
+  const t  = locales[lang];   // ข้อความภาษา
+  const th = theme;           // ธีมสี
 
+  /* ปิด dropdown เมื่อคลิกนอก */
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    const fn = (e) => { if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setDropdownOpen(false); };
+    document.addEventListener('mousedown', fn);
+    return () => document.removeEventListener('mousedown', fn);
   }, []);
 
-  const getEstimatedTime = (queueIndex) => {
-    const waitMinutes = (queueIndex + 1) * 40;
+  const getEstimatedTime = (i) => {
     const d = new Date();
-    d.setMinutes(d.getMinutes() + waitMinutes);
-    const timeStr = d.toLocaleTimeString(t.locale, { hour: '2-digit', minute: '2-digit' });
-    return t.estimatedTime(timeStr);
+    d.setMinutes(d.getMinutes() + (i + 1) * 40);
+    return t.estimatedTime(d.toLocaleTimeString(t.locale, { hour: '2-digit', minute: '2-digit' }));
   };
 
   const handleSubmit = (e) => {
@@ -39,26 +34,28 @@ export default function CustomerView({ barbers, onBook, theme }) {
     setCustomerPhone('');
   };
 
-  const inputStyle = {
+  /* style ที่ใช้ซ้ำ — fontSize 16px ป้องกัน iOS auto-zoom เมื่อ focus input */
+  const inputCls = {
     backgroundColor: th.inputBg,
     border: `1px solid ${th.inputBorder}`,
     color: th.pageText,
-    width: '100%',
     borderRadius: '0.5rem',
-    padding: '0.65rem 1rem',
+    padding: '0.7rem 1rem',
+    fontSize: '16px',
+    width: '100%',
     outline: 'none',
-    fontSize: '16px', // ป้องกัน iOS zoom เมื่อ focus input
+    boxSizing: 'border-box',
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 sm:space-y-6">
 
-      {/* ── Language picker ── */}
+      {/* ── Language Dropdown ── */}
       <div className="flex justify-end">
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium"
             style={{ backgroundColor: th.inputBg, border: `1px solid ${th.inputBorder}`, color: th.pageText }}
           >
             <Globe size={13} style={{ color: th.accent }} />
@@ -72,17 +69,14 @@ export default function CustomerView({ barbers, onBook, theme }) {
               style={{ backgroundColor: th.cardBg, border: `1px solid ${th.cardBorder}` }}>
               <div className="h-px" style={{ background: th.dividerLine }} />
               {Object.entries(locales).map(([key, val]) => (
-                <button
-                  key={key}
+                <button key={key}
                   onClick={() => { setLang(key); setDropdownOpen(false); }}
                   className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors"
                   style={lang === key
                     ? { backgroundColor: `${th.accent}20`, color: th.accent, fontWeight: 600, borderLeft: `2px solid ${th.accent}` }
                     : { color: th.pageText + 'aa' }
-                  }
-                >
-                  <span>{val.flag}</span>
-                  <span>{val.label}</span>
+                  }>
+                  <span>{val.flag}</span><span>{val.label}</span>
                 </button>
               ))}
             </div>
@@ -90,102 +84,86 @@ export default function CustomerView({ barbers, onBook, theme }) {
         </div>
       </div>
 
-      {/* ── Booking form ── */}
-      <section className="rounded-2xl p-4 sm:p-6 shadow-lg transition-all duration-300"
+      {/* ── Booking Form ── */}
+      <section className="rounded-2xl p-4 sm:p-6"
         style={{ backgroundColor: th.cardBg, border: `1px solid ${th.cardBorder}`, boxShadow: th.cardGlow }}>
 
         <div className="flex items-center gap-2.5 mb-4">
-          <div className="p-1.5 rounded-lg" style={{ backgroundColor: `${th.accent}20` }}>
-            <UserPlus size={18} style={{ color: th.accent }} />
+          <div className="p-1.5 rounded-lg shrink-0" style={{ backgroundColor: `${th.accent}20` }}>
+            <UserPlus size={16} style={{ color: th.accent }} />
           </div>
-          <h2 className="font-display text-lg font-bold" style={{ color: th.pageText }}>{t.bookingTitle}</h2>
+          <h2 className="font-display text-base sm:text-lg font-bold" style={{ color: th.pageText }}>
+            {t.bookingTitle}
+          </h2>
         </div>
         <div className="h-px mb-4 opacity-40" style={{ background: th.dividerLine }} />
 
-        {/* form — stacked บน mobile, grid บน desktop */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        <form onSubmit={handleSubmit} className="space-y-3">
 
+          {/* row 1: ชื่อ + เบอร์ */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* ชื่อ */}
             <div>
-              <label className="block text-xs font-medium mb-1.5 tracking-wide uppercase"
+              <label className="block text-xs font-medium mb-1.5 uppercase tracking-wide"
                 style={{ color: th.pageText + '60' }}>{t.labelName}</label>
-              <input
-                type="text"
-                value={customerName}
+              <input type="text" value={customerName} required
                 onChange={e => setCustomerName(e.target.value)}
-                placeholder={t.placeholderName}
-                style={inputStyle}
-                required
-              />
+                placeholder={t.placeholderName} style={inputCls} />
             </div>
-            {/* เบอร์ */}
             <div>
-              <label className="block text-xs font-medium mb-1.5 tracking-wide uppercase"
+              <label className="block text-xs font-medium mb-1.5 uppercase tracking-wide"
                 style={{ color: th.pageText + '60' }}>{t.labelPhone}</label>
-              <input
-                type="tel"
-                value={customerPhone}
+              <input type="tel" value={customerPhone} required
                 onChange={e => setCustomerPhone(e.target.value)}
-                placeholder={t.placeholderPhone}
-                style={inputStyle}
-                required
-              />
+                placeholder={t.placeholderPhone} style={inputCls} />
             </div>
           </div>
 
+          {/* row 2: เลือกช่าง + ปุ่มจอง */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* เลือกช่าง */}
             <div>
-              <label className="block text-xs font-medium mb-1.5 tracking-wide uppercase"
+              <label className="block text-xs font-medium mb-1.5 uppercase tracking-wide"
                 style={{ color: th.pageText + '60' }}>{t.labelBarber}</label>
-              <select
-                value={selectedBarber}
-                onChange={e => setSelectedBarber(e.target.value)}
-                style={{ ...inputStyle, appearance: 'none' }}
-              >
+              <select value={selectedBarber} onChange={e => setSelectedBarber(e.target.value)}
+                style={{ ...inputCls, appearance: 'none' }}>
                 <option value="any">{t.anyBarber}</option>
                 {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
             </div>
-            {/* ปุ่มจอง */}
             <div className="flex items-end">
-              <button
-                type="submit"
-                className="w-full font-bold rounded-lg py-3 transition-all duration-200 active:scale-95"
+              <button type="submit"
+                className="w-full font-bold rounded-lg py-3 transition-all active:scale-95"
                 style={{
                   background: `linear-gradient(135deg,${th.accentFrom},${th.accentTo})`,
                   color: th.accentText,
                   fontSize: '15px',
                   boxShadow: `0 4px 14px ${th.accentShadow}`,
-                }}
-              >
+                }}>
                 {t.bookBtn}
               </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 text-xs" style={{ color: th.pageText + '40' }}>
+          <div className="flex items-center gap-1.5 text-xs pt-1" style={{ color: th.pageText + '40' }}>
             <Volume2 size={12} style={{ color: th.accent + '70' }} />
             {t.voiceNote}
           </div>
         </form>
       </section>
 
-      {/* ── Queue status ── */}
+      {/* ── Queue Status ── */}
       <section>
         <div className="flex items-center gap-2.5 mb-4">
-          <div className="p-1.5 rounded-lg" style={{ backgroundColor: `${th.accent}20` }}>
-            <Clock size={18} style={{ color: th.accent }} />
+          <div className="p-1.5 rounded-lg shrink-0" style={{ backgroundColor: `${th.accent}20` }}>
+            <Clock size={16} style={{ color: th.accent }} />
           </div>
-          <h2 className="font-display text-lg font-bold" style={{ color: th.pageText }}>{t.queueTitle}</h2>
+          <h2 className="font-display text-base sm:text-lg font-bold" style={{ color: th.pageText }}>
+            {t.queueTitle}
+          </h2>
         </div>
 
-        {/* 1 col mobile, 2 col tablet+ */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {barbers.map(barber => (
-            <div key={barber.id}
-              className="rounded-xl p-4 flex flex-col transition-all duration-300"
+            <div key={barber.id} className="rounded-xl p-4 flex flex-col"
               style={{ backgroundColor: th.cardBg, border: `1px solid ${th.cardBorder}`, boxShadow: th.cardGlow }}>
 
               {/* หัวช่าง */}
@@ -195,8 +173,10 @@ export default function CustomerView({ barbers, onBook, theme }) {
                   style={{ backgroundColor: th.inputBg, border: `1px solid ${th.inputBorder}` }}>
                   🧑🏻‍🦱
                 </div>
-                <div className="min-w-0">
-                  <h3 className="font-semibold text-sm truncate" style={{ color: th.pageText }}>{barber.name}</h3>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold text-sm truncate" style={{ color: th.pageText }}>
+                    {barber.name}
+                  </h3>
                   {barber.currentCustomer ? (
                     <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full mt-0.5"
                       style={{ color: th.servingColor, backgroundColor: th.servingBg, border: `1px solid ${th.servingBorder}` }}>
@@ -217,8 +197,9 @@ export default function CustomerView({ barbers, onBook, theme }) {
               <div className="flex-grow">
                 {barber.currentCustomer ? (
                   <div className="mb-3">
-                    <p className="text-xs uppercase tracking-wide mb-1.5"
-                      style={{ color: th.pageText + '50' }}>{t.cuttingNow}</p>
+                    <p className="text-xs uppercase tracking-wide mb-1.5" style={{ color: th.pageText + '50' }}>
+                      {t.cuttingNow}
+                    </p>
                     <div className="rounded-lg px-3 py-2.5 flex items-center gap-2"
                       style={{ backgroundColor: th.inputBg, borderLeft: `2px solid ${th.accent}` }}>
                       <User size={14} style={{ color: th.accent }} className="shrink-0" />
@@ -236,8 +217,9 @@ export default function CustomerView({ barbers, onBook, theme }) {
 
                 {barber.queue.length > 0 && (
                   <div>
-                    <p className="text-xs uppercase tracking-wide mb-1.5"
-                      style={{ color: th.pageText + '50' }}>{t.queueWaiting(barber.queue.length)}</p>
+                    <p className="text-xs uppercase tracking-wide mb-1.5" style={{ color: th.pageText + '50' }}>
+                      {t.queueWaiting(barber.queue.length)}
+                    </p>
                     <div className="space-y-1.5">
                       {barber.queue.map((q, index) => (
                         <div key={q.id} className="rounded-lg px-3 py-2 flex flex-col gap-1"

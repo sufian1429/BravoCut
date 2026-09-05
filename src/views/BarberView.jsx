@@ -6,25 +6,29 @@ export default function BarberView({ barbers, onFinish, theme }) {
 
   return (
     <div className="space-y-4">
+
       {/* Banner */}
-      <div className="p-3 sm:p-4 rounded-xl flex items-center gap-3"
+      <div className="p-3 sm:p-4 rounded-xl flex items-start sm:items-center gap-3"
         style={{ backgroundColor: `${th.accent}12`, border: `1px solid ${th.accent}30` }}>
-        <div className="p-1.5 rounded-lg shrink-0" style={{ backgroundColor: `${th.accent}20` }}>
+        <div className="p-1.5 rounded-lg shrink-0 mt-0.5 sm:mt-0"
+          style={{ backgroundColor: `${th.accent}20` }}>
           <Scissors size={16} style={{ color: th.accent }} />
         </div>
         <div>
-          <h3 className="font-semibold text-sm" style={{ color: th.accent }}>โหมดสำหรับช่างตัดผม</h3>
+          <h3 className="font-semibold text-sm" style={{ color: th.accent }}>
+            โหมดสำหรับช่างตัดผม
+          </h3>
           <p className="text-xs mt-0.5" style={{ color: th.pageText + '55' }}>
             กดปุ่มเมื่อให้บริการเสร็จ เพื่อเรียกคิวถัดไปอัตโนมัติ
           </p>
         </div>
       </div>
 
-      {/* 1 col mobile → 2 col tablet+ */}
+      {/* Grid ช่าง — 1 col มือถือ / 2 col tablet+ */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {barbers.map(barber => (
           <div key={barber.id}
-            className="rounded-xl p-4 sm:p-5 flex flex-col items-center text-center transition-all duration-300"
+            className="rounded-xl p-4 sm:p-5 flex flex-col items-center text-center"
             style={{ backgroundColor: th.cardBg, border: `1px solid ${th.cardBorder}`, boxShadow: th.cardGlow }}>
 
             {/* Avatar */}
@@ -32,18 +36,19 @@ export default function BarberView({ barbers, onFinish, theme }) {
               style={{ backgroundColor: th.inputBg, border: `1px solid ${th.inputBorder}` }}>
               🧑🏻‍🦱
             </div>
-            <h3 className="font-display text-base sm:text-lg font-bold mb-3" style={{ color: th.pageText }}>
+            <h3 className="font-display text-base sm:text-lg font-bold mb-3"
+              style={{ color: th.pageText }}>
               {barber.name}
             </h3>
 
-            {/* ลูกค้าปัจจุบัน */}
-            <div className="w-full rounded-xl p-3 mb-3 min-h-[90px] flex flex-col justify-center items-center"
+            {/* ข้อมูลลูกค้า */}
+            <div className="w-full rounded-xl p-3 mb-3 min-h-[88px] flex flex-col justify-center items-center"
               style={{ backgroundColor: th.inputBg, border: `1px solid ${th.cardBorder}` }}>
               {barber.currentCustomer ? (
                 <>
-                  <span className="text-[10px] font-medium uppercase tracking-widest mb-1.5"
+                  <span className="text-[10px] font-medium uppercase tracking-widest mb-1"
                     style={{ color: th.pageText + '50' }}>ลูกค้าปัจจุบัน</span>
-                  <span className="text-lg font-bold mb-1.5" style={{ color: th.accentFrom }}>
+                  <span className="text-base sm:text-lg font-bold mb-1.5" style={{ color: th.accentFrom }}>
                     {barber.currentCustomer.name}
                   </span>
                   <div className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full"
@@ -73,8 +78,7 @@ export default function BarberView({ barbers, onFinish, theme }) {
               style={barber.currentCustomer
                 ? { background: 'linear-gradient(135deg,#34d399,#059669)', color: '#fff', boxShadow: '0 4px 14px rgba(5,150,105,0.35)' }
                 : { backgroundColor: th.inputBg, border: `1px solid ${th.cardBorder}`, color: th.pageText + '30', cursor: 'not-allowed' }
-              }
-            >
+              }>
               <CheckCircle size={16} />
               ตัดเสร็จเรียบร้อย
             </button>
