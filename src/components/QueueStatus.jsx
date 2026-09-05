@@ -1,3 +1,14 @@
+import React from 'react';
+import { Clock, User, Info } from 'lucide-react';
+
+const getEstimatedTime = (queueIndex) => {
+  const avgMinutesPerCut = 40;
+  const waitMinutes = (queueIndex + 1) * avgMinutesPerCut;
+  const estimateDate = new Date();
+  estimateDate.setMinutes(estimateDate.getMinutes() + waitMinutes);
+  return `ประเมินเวลาได้ตัด: ${estimateDate.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`;
+};
+
 const QueueStatus = ({ barbers }) => (
   <section>
     <h2 className="text-xl font-semibold mb-6 flex items-center gap-2 text-white">
@@ -54,7 +65,7 @@ const QueueStatus = ({ barbers }) => (
                         <span className="font-medium text-neutral-200">{q.name}</span>
                       </div>
                       <div className="pl-7 text-xs text-yellow-600/80 flex items-center gap-1">
-                        <Info size={12}/> {getEstimatedTime(index)}
+                        <Info size={12} /> {getEstimatedTime(index)}
                       </div>
                     </div>
                   ))}
@@ -67,3 +78,5 @@ const QueueStatus = ({ barbers }) => (
     </div>
   </section>
 );
+
+export default QueueStatus;

@@ -1,3 +1,6 @@
+import React, { useState } from 'react';
+import { UserPlus, Volume2 } from 'lucide-react';
+
 const BookingForm = ({ barbers, onBook }) => {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -6,11 +9,9 @@ const BookingForm = ({ barbers, onBook }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!customerName.trim() || !customerPhone.trim()) return;
-    
-    // ส่งข้อมูลกลับไปให้ App.js จัดการ
+
     onBook({ name: customerName, phone: customerPhone, barberId: selectedBarber });
-    
-    // เคลียร์ฟอร์ม
+
     setCustomerName('');
     setCustomerPhone('');
   };
@@ -24,8 +25,8 @@ const BookingForm = ({ barbers, onBook }) => {
       <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-12 gap-4">
         <div className="md:col-span-4">
           <label className="block text-sm text-neutral-400 mb-1">ชื่อลูกค้า</label>
-          <input 
-            type="text" 
+          <input
+            type="text"
             value={customerName}
             onChange={(e) => setCustomerName(e.target.value)}
             placeholder="กรอกชื่อของคุณ..."
@@ -35,8 +36,8 @@ const BookingForm = ({ barbers, onBook }) => {
         </div>
         <div className="md:col-span-3">
           <label className="block text-sm text-neutral-400 mb-1">เบอร์โทรศัพท์</label>
-          <input 
-            type="tel" 
+          <input
+            type="tel"
             value={customerPhone}
             onChange={(e) => setCustomerPhone(e.target.value)}
             placeholder="08X-XXX-XXXX"
@@ -46,7 +47,7 @@ const BookingForm = ({ barbers, onBook }) => {
         </div>
         <div className="md:col-span-3">
           <label className="block text-sm text-neutral-400 mb-1">เลือกช่างตัดผม</label>
-          <select 
+          <select
             value={selectedBarber}
             onChange={(e) => setSelectedBarber(e.target.value)}
             className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-yellow-500 transition-colors appearance-none"
@@ -58,7 +59,7 @@ const BookingForm = ({ barbers, onBook }) => {
           </select>
         </div>
         <div className="md:col-span-2 flex items-end">
-          <button 
+          <button
             type="submit"
             className="w-full bg-yellow-600 hover:bg-yellow-500 text-black font-bold rounded-lg p-3 transition-colors flex justify-center items-center gap-2"
           >
@@ -72,3 +73,5 @@ const BookingForm = ({ barbers, onBook }) => {
     </section>
   );
 };
+
+export default BookingForm;
