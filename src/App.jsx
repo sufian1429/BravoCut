@@ -17,28 +17,40 @@ export default function App() {
   const speak = (text) => {
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
+
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'th-TH';
-    utterance.rate = 0.9;
-    utterance.pitch = 1.8;
+    utterance.lang   = 'th-TH';
+    utterance.rate   = 0.85;  // พูดช้าลงนิด ฟังดูผู้ใหญ่
+    utterance.pitch  = 0.7;   // เสียงต่ำ — ผู้ชายวัยกลางคน (0 = ต่ำสุด, 2 = สูงสุด)
     utterance.volume = 1;
+
     const doSpeak = () => {
       const voices = window.speechSynthesis.getVoices();
-      const thFemale = voices.find(v => v.lang.startsWith('th') && v.name.toLowerCase().includes('female'));
-      const thAny    = voices.find(v => v.lang.startsWith('th'));
-      const enFemale = voices.find(v =>
-        v.lang.startsWith('en') &&
-        (v.name.includes('Female') || v.name.includes('Samantha') || v.name.includes('Karen') || v.name.includes('Zira'))
+
+      // ลำดับความสำคัญ: เสียงผู้ชายภาษาไทย → ไทยทั่วไป → ผู้ชายอังกฤษ
+      const thMale = voices.find(v =>
+        v.lang.startsWith('th') && v.name.toLowerCase().includes('male')
       );
-      utterance.voice = thFemale || thAny || enFemale || null;
+      const thAny = voices.find(v => v.lang.startsWith('th'));
+      const enMale = voices.find(v =>
+        v.lang.startsWith('en') && (
+          v.name.includes('Male')   ||
+          v.name.includes('Daniel') ||   // macOS / iOS
+          v.name.includes('David')  ||   // Windows
+          v.name.includes('Google UK English Male') ||
+          v.name.includes('Fred')        // macOS
+        )
+      );
+
+      utterance.voice = thMale || thAny || enMale || null;
       window.speechSynthesis.speak(utterance);
     };
+
     if (window.speechSynthesis.getVoices().length > 0) doSpeak();
     else window.speechSynthesis.onvoiceschanged = doSpeak;
   };
 
   const handleBook = ({ name, phone, barberId, isNextDay }) => {
-    // 1. คำนวณ targetBarberId
     let targetBarberId = barberId;
     if (targetBarberId === 'any') {
       const freeBarber = barbers.find(b => !b.currentCustomer);
@@ -52,20 +64,17 @@ export default function App() {
     }
     targetBarberId = parseInt(targetBarberId);
 
-    // 2. speak() ก่อน setState — ต้องอยู่ใน synchronous event handler
     const targetBarber = barbers.find(b => b.id === targetBarberId);
     if (targetBarber) {
       if (isNextDay) {
-        // จองนอกเวลา → แจ้งว่าเป็นวันพรุ่งนี้
-        speak(`จองคิวสำเร็จค่ะ คุณ ${name} จะตัดกับ ${targetBarber.name} ในวันพรุ่งนี้ค่ะ`);
+        speak(`จองคิวสำเร็จครับ คุณ ${name} จะตัดกับ ${targetBarber.name} ในวันพรุ่งนี้ครับ`);
       } else if (!targetBarber.currentCustomer) {
-        speak(`มีการจองคิวใหม่ คุณ ${name} ตัดกับ ${targetBarber.name} ไม่มีคิว เชิญตัดได้เลยค่ะ`);
+        speak(`มีการจองคิวใหม่ครับ คุณ ${name} ตัดกับ ${targetBarber.name} ไม่มีคิว เชิญตัดได้เลยครับ`);
       } else {
-        speak(`มีการจองคิวใหม่ คุณ ${name} ตัดกับ ${targetBarber.name} ได้คิวที่ ${targetBarber.queue.length + 1} ค่ะ`);
+        speak(`มีการจองคิวใหม่ครับ คุณ ${name} ตัดกับ ${targetBarber.name} ได้คิวที่ ${targetBarber.queue.length + 1} ครับ`);
       }
     }
 
-    // 3. อัปเดต state
     setBarbers(prev => prev.map(barber => {
       if (barber.id !== targetBarberId) return barber;
       if (!barber.currentCustomer) {
@@ -79,7 +88,7 @@ export default function App() {
   const handleFinish = (barberId) => {
     const targetBarber = barbers.find(b => b.id === barberId);
     if (targetBarber?.queue.length > 0) {
-      speak(`เชิญคิวต่อไป คุณ ${targetBarber.queue[0].name} ที่ ${targetBarber.name} ค่ะ`);
+      speak(`เชิญคิวต่อไปครับ คุณ ${targetBarber.queue[0].name} ที่ ${targetBarber.name} ครับ`);
     }
     setBarbers(prev => prev.map(barber => {
       if (barber.id !== barberId) return barber;
