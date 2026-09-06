@@ -3,6 +3,7 @@ import { User, Clock, Volume2, UserPlus, Info, Globe, ChevronDown, AlertTriangle
 import { locales } from '../utils/locales';
 import {
   isShopOpen,
+  isAfterClose,
   isNearClose,
   nextOpenDate,
   formatNextDay,
@@ -20,14 +21,20 @@ export default function CustomerView({ barbers, onBook, theme }) {
   const t  = locales[lang];
   const th = theme;
 
-  // คำนวณ state เวลา (re-evaluate ทุก render — component เล็กพอ)
+  // ── เวลา ────────────────────────────────────────────────────────────────
   const now        = new Date();
-  const shopOpen   = isShopOpen(now);
-  const nearClose  = isNearClose(now);
+  const shopOpen   = isShopOpen(now);    // true ระหว่าง 10:00–21:00
+  const afterClose = isAfterClose(now);  // true เฉพาะ ≥ 21:00 → ต้องจองวันถัดไป
+  const nearClose  = isNearClose(now);   // true ระหว่าง 20:30–21:00 → ช่างที่มีคิวรับไม่ทัน
   const nextDay    = nextOpenDate(now);
   const nextDayStr = formatNextDay(nextDay, t.locale);
 
-  // ช่างที่ถูก disable ในช่วง near-close
+  // ก่อน 10:00 และหลัง 21:00 สถานะต่างกัน
+  // ก่อน 10:00 → ร้านยังไม่เปิด แต่จองวันนี้ได้ (shopOpen=false, afterClose=false)
+  // หลัง 21:00 → ปิดแล้ว จองวันถัดไป        (shopOpen=false, afterClose=true)
+  const isNextDayBooking = afterClose;
+
+  // ช่างที่ถูก disable ใน near-close
   const barberDisabled = (barber) => nearClose && !barberAcceptsNearClose(barber);
 
   // ปิด dropdown เมื่อคลิกนอก
@@ -40,7 +47,7 @@ export default function CustomerView({ barbers, onBook, theme }) {
     return () => document.removeEventListener('mousedown', fn);
   }, []);
 
-  // ถ้า selectedBarber ถูก disable → reset เป็น 'any'
+  // reset ช่างที่ disable
   useEffect(() => {
     if (selectedBarber !== 'any') {
       const b = barbers.find(b => b.id === parseInt(selectedBarber));
@@ -57,18 +64,15 @@ export default function CustomerView({ barbers, onBook, theme }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!customerName.trim() || !customerPhone.trim()) return;
-
-    // ถ้าเลือกช่างที่ disable → ป้องกันไม่ให้ submit
     if (selectedBarber !== 'any') {
       const b = barbers.find(b => b.id === parseInt(selectedBarber));
       if (b && barberDisabled(b)) return;
     }
-
     onBook({
       name: customerName,
       phone: customerPhone,
       barberId: selectedBarber,
-      isNextDay: !shopOpen,   // ส่งไปให้ App รู้ว่าเป็นจองวันถัดไป
+      isNextDay: isNextDayBooking,
     });
     setCustomerName('');
     setCustomerPhone('');
@@ -86,33 +90,37 @@ export default function CustomerView({ barbers, onBook, theme }) {
     boxSizing: 'border-box',
   };
 
+  // สีแสดงสถานะร้าน
+  const statusColor = shopOpen
+    ? (nearClose ? th.accent : th.availColor)
+    : (afterClose ? th.servingColor : th.accent);
+
+  const statusLabel = shopOpen
+    ? (nearClose ? '⚡ ใกล้ปิด' : '🟢 เปิดอยู่')
+    : (afterClose ? '🔴 ปิดแล้ว' : '🕐 ยังไม่เปิด');
+
   return (
     <div className="space-y-4 sm:space-y-5">
 
-      {/* ── Language Dropdown ── */}
+      {/* ── แถบสถานะ + ภาษา ── */}
       <div className="flex items-center justify-between gap-2">
-
-        {/* แสดงเวลาทำการ */}
         <div className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg"
           style={{
-            backgroundColor: shopOpen ? `${th.availColor}15` : `${th.servingColor}15`,
-            border: `1px solid ${shopOpen ? th.availColor : th.servingColor}30`,
-            color: shopOpen ? th.availColor : th.servingColor,
+            backgroundColor: `${statusColor}15`,
+            border: `1px solid ${statusColor}30`,
+            color: statusColor,
           }}>
-          <span className="w-1.5 h-1.5 rounded-full"
-            style={{ backgroundColor: shopOpen ? th.availColor : th.servingColor }} />
-          <span className="font-medium">{shopOpen ? t.shopHours : t.shopHours}</span>
-          <span className="opacity-60">•</span>
-          <span>{shopOpen ? (nearClose ? '⚡ ใกล้ปิด' : '🟢 เปิดอยู่') : '🔴 ปิดแล้ว'}</span>
+          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: statusColor }} />
+          <span className="font-medium">{t.shopHours}</span>
+          <span className="opacity-50">•</span>
+          <span>{statusLabel}</span>
         </div>
 
         {/* ภาษา */}
         <div className="relative shrink-0" ref={dropdownRef}>
-          <button
-            onClick={() => setDropdownOpen(!dropdownOpen)}
+          <button onClick={() => setDropdownOpen(!dropdownOpen)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium"
-            style={{ backgroundColor: th.inputBg, border: `1px solid ${th.inputBorder}`, color: th.pageText }}
-          >
+            style={{ backgroundColor: th.inputBg, border: `1px solid ${th.inputBorder}`, color: th.pageText }}>
             <Globe size={13} style={{ color: th.accent }} />
             <span>{locales[lang].flag} {locales[lang].label}</span>
             <ChevronDown size={12} style={{ color: th.pageText + '60' }}
@@ -137,13 +145,13 @@ export default function CustomerView({ barbers, onBook, theme }) {
         </div>
       </div>
 
-      {/* ── Banner นอกเวลา ── */}
-      {!shopOpen && (
-        <div className="flex items-start gap-3 p-3 rounded-xl text-sm"
+      {/* ── Banner ปิดแล้ว → จองวันถัดไป (≥ 21:00 เท่านั้น) ── */}
+      {afterClose && (
+        <div className="flex items-start gap-3 p-3 rounded-xl"
           style={{ backgroundColor: `${th.accent}15`, border: `1px solid ${th.accent}35` }}>
-          <CalendarClock size={18} className="shrink-0 mt-0.5" style={{ color: th.accent }} />
+          <CalendarClock size={17} className="shrink-0 mt-0.5" style={{ color: th.accent }} />
           <div>
-            <p className="font-semibold" style={{ color: th.accent }}>{t.nextDayNote}</p>
+            <p className="text-sm font-semibold" style={{ color: th.accent }}>{t.nextDayNote}</p>
             <p className="text-xs mt-0.5" style={{ color: th.pageText + '70' }}>
               {t.afterHoursBanner(nextDayStr)}
             </p>
@@ -151,9 +159,21 @@ export default function CustomerView({ barbers, onBook, theme }) {
         </div>
       )}
 
-      {/* ── Banner ใกล้ปิด ── */}
-      {shopOpen && nearClose && (
-        <div className="flex items-start gap-3 p-3 rounded-xl text-sm"
+      {/* ── Banner ยังไม่เปิด (ก่อน 10:00) → จองวันนี้ได้เลย ── */}
+      {!shopOpen && !afterClose && (
+        <div className="flex items-start gap-3 p-3 rounded-xl"
+          style={{ backgroundColor: `${th.accent}12`, border: `1px solid ${th.accent}30` }}>
+          <Clock size={17} className="shrink-0 mt-0.5" style={{ color: th.accent }} />
+          <p className="text-xs" style={{ color: th.pageText + '75' }}>
+            <span className="font-semibold" style={{ color: th.accent }}>ร้านเปิด 10:00 น. </span>
+            — สามารถจองคิวสำหรับวันนี้ได้เลยครับ
+          </p>
+        </div>
+      )}
+
+      {/* ── Banner ใกล้ปิด (20:30–21:00) ── */}
+      {nearClose && (
+        <div className="flex items-start gap-3 p-3 rounded-xl"
           style={{ backgroundColor: `${th.servingColor}12`, border: `1px solid ${th.servingColor}30` }}>
           <AlertTriangle size={16} className="shrink-0 mt-0.5" style={{ color: th.servingColor }} />
           <p className="text-xs leading-relaxed" style={{ color: th.pageText + '80' }}>
@@ -173,7 +193,7 @@ export default function CustomerView({ barbers, onBook, theme }) {
           </div>
           <h2 className="font-display text-base sm:text-lg font-bold" style={{ color: th.pageText }}>
             {t.bookingTitle}
-            {!shopOpen && (
+            {isNextDayBooking && (
               <span className="ml-2 text-xs font-normal px-2 py-0.5 rounded-full align-middle"
                 style={{ backgroundColor: `${th.accent}20`, color: th.accent }}>
                 {t.nextDayNote}
@@ -184,7 +204,6 @@ export default function CustomerView({ barbers, onBook, theme }) {
         <div className="h-px mb-4 opacity-40" style={{ background: th.dividerLine }} />
 
         <form onSubmit={handleSubmit} className="space-y-3">
-          {/* ชื่อ + เบอร์ */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium mb-1.5 uppercase tracking-wide"
@@ -202,7 +221,6 @@ export default function CustomerView({ barbers, onBook, theme }) {
             </div>
           </div>
 
-          {/* เลือกช่าง + ปุ่มจอง */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium mb-1.5 uppercase tracking-wide"
@@ -264,8 +282,6 @@ export default function CustomerView({ barbers, onBook, theme }) {
                   boxShadow: th.cardGlow,
                   opacity: disabled ? 0.7 : 1,
                 }}>
-
-                {/* หัวช่าง */}
                 <div className="flex items-center gap-3 pb-3 mb-3"
                   style={{ borderBottom: `1px solid ${th.cardBorder}` }}>
                   <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0"
@@ -276,8 +292,6 @@ export default function CustomerView({ barbers, onBook, theme }) {
                     <h3 className="font-semibold text-sm truncate" style={{ color: th.pageText }}>
                       {barber.name}
                     </h3>
-
-                    {/* badge สถานะ */}
                     {disabled ? (
                       <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full mt-0.5"
                         style={{ color: th.servingColor, backgroundColor: th.servingBg, border: `1px solid ${th.servingBorder}` }}>
@@ -299,7 +313,6 @@ export default function CustomerView({ barbers, onBook, theme }) {
                   </div>
                 </div>
 
-                {/* ลูกค้าปัจจุบัน */}
                 <div className="flex-grow">
                   {barber.currentCustomer ? (
                     <div className="mb-3">
