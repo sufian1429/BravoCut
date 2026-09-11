@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+// ⚠️ DEPRECATED — logic ถูกรวมไปใน CustomerView.jsx แล้ว ไฟล์นี้ไม่ถูกใช้งาน
+import { useState } from 'react';
 import { UserPlus, Volume2 } from 'lucide-react';
 
 const BookingForm = ({ barbers, onBook }) => {

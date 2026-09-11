@@ -1,5 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { User, Clock, Volume2, UserPlus, Info, Globe, ChevronDown, AlertTriangle, CalendarClock } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import {
+  User, Clock, Volume2, UserPlus, Info, Globe, ChevronDown, ArrowLeft,
+  AlertTriangle, CalendarClock, CalendarDays, Users,
+} from 'lucide-react';
 import { locales } from '../utils/locales';
 import {
   isShopOpen,
@@ -9,13 +12,25 @@ import {
   formatNextDay,
   barberAcceptsNearClose,
 } from '../utils/shopHours';
+import { totalMinutes, customerDuration } from '../utils/services';
+import { getAvailableSlots, toDateKey, dateKeyToLabel } from '../utils/appointments';
+import Hero from '../components/Hero';
+import ServiceSelector from '../components/ServiceSelector';
+import BookingConfirmModal from '../components/BookingConfirmModal';
 
-export default function CustomerView({ barbers, onBook, theme }) {
+export default function CustomerView({ barbers, appointments, onBook, onBookAdvance, theme }) {
   const [customerName, setCustomerName]     = useState('');
   const [customerPhone, setCustomerPhone]   = useState('');
   const [selectedBarber, setSelectedBarber] = useState('any');
+  const [selectedServices, setSelectedServices] = useState([]);
   const [lang, setLang]                     = useState('th');
   const [dropdownOpen, setDropdownOpen]     = useState(false);
+  const [mode, setMode]                     = useState('now'); // 'now' | 'advance'
+  const [screen, setScreen]                 = useState('hero'); // 'hero' | 'booking' — หน้าแรก vs หน้าสอง
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
+  const [confirmData, setConfirmData]       = useState(null);
+  const [slotTakenError, setSlotTakenError] = useState(false);
+
   const dropdownRef = useRef(null);
 
   const t  = locales[lang];
@@ -29,13 +44,31 @@ export default function CustomerView({ barbers, onBook, theme }) {
   const nextDay    = nextOpenDate(now);
   const nextDayStr = formatNextDay(nextDay, t.locale);
 
-  // ก่อน 10:00 และหลัง 21:00 สถานะต่างกัน
-  // ก่อน 10:00 → ร้านยังไม่เปิด แต่จองวันนี้ได้ (shopOpen=false, afterClose=false)
-  // หลัง 21:00 → ปิดแล้ว จองวันถัดไป        (shopOpen=false, afterClose=true)
   const isNextDayBooking = afterClose;
 
-  // ช่างที่ถูก disable ใน near-close
+  // ช่างที่ถูก disable ใน near-close (เฉพาะโหมด "เข้าคิวตอนนี้")
   const barberDisabled = (barber) => nearClose && !barberAcceptsNearClose(barber);
+
+  // ── จองล่วงหน้า: วันที่ / เวลา (เลือกข้ามวันข้ามเดือนได้ ไม่จำกัดแค่ 7 วัน) ──
+  const [selectedDateKey, setSelectedDateKey] = useState(() => toDateKey(new Date()));
+  const [selectedTime, setSelectedTime]       = useState(null);
+
+  const durationMin = totalMinutes(selectedServices);
+
+  const availableSlots = (() => {
+    if (mode !== 'advance' || durationMin <= 0) return [];
+    if (selectedBarber === 'any') {
+      const union = new Set();
+      barbers.forEach(b => {
+        getAvailableSlots({ dateKey: selectedDateKey, barberId: b.id, durationMin, appointments, now })
+          .forEach(s => union.add(s));
+      });
+      return Array.from(union).sort();
+    }
+    return getAvailableSlots({
+      dateKey: selectedDateKey, barberId: parseInt(selectedBarber), durationMin, appointments, now,
+    });
+  })();
 
   // ปิด dropdown เมื่อคลิกนอก
   useEffect(() => {
@@ -47,35 +80,105 @@ export default function CustomerView({ barbers, onBook, theme }) {
     return () => document.removeEventListener('mousedown', fn);
   }, []);
 
-  // reset ช่างที่ disable
-  useEffect(() => {
-    if (selectedBarber !== 'any') {
+  // ช่างที่เลือกไว้กลายเป็น disabled ระหว่างทาง (เวลาผ่านเข้าใกล้ปิด) → แสดงเป็น "ช่างคนไหนก็ได้" แทน
+  // โดยไม่ต้องเซ็ต state ใหม่ (การเช็คตอน submit ก็ยังกันไว้อีกชั้นอยู่แล้ว)
+  const barberSelectValue = (() => {
+    if (mode === 'now' && selectedBarber !== 'any') {
       const b = barbers.find(b => b.id === parseInt(selectedBarber));
-      if (b && barberDisabled(b)) setSelectedBarber('any');
+      if (b && barberDisabled(b)) return 'any';
     }
-  }, [nearClose, barbers]);
+    return selectedBarber;
+  })();
 
-  const getEstimatedTime = (i) => {
+  const goToBooking = () => setScreen('booking');
+
+  const getEstimatedTime = (barber, index) => {
+    let waitMin = barber.currentCustomer ? customerDuration(barber.currentCustomer) : 0;
+    for (let i = 0; i <= index; i++) waitMin += customerDuration(barber.queue[i]);
     const d = new Date();
-    d.setMinutes(d.getMinutes() + (i + 1) * 40);
+    d.setMinutes(d.getMinutes() + waitMin);
     return t.estimatedTime(d.toLocaleTimeString(t.locale, { hour: '2-digit', minute: '2-digit' }));
   };
 
-  const handleSubmit = (e) => {
+  // ── submit: เข้าคิวตอนนี้ ─────────────────────────────────────────────────
+  const handleSubmitNow = (e) => {
     e.preventDefault();
-    if (!customerName.trim() || !customerPhone.trim()) return;
+    setAttemptedSubmit(true);
+    if (!customerName.trim() || !customerPhone.trim() || selectedServices.length === 0) return;
     if (selectedBarber !== 'any') {
       const b = barbers.find(b => b.id === parseInt(selectedBarber));
       if (b && barberDisabled(b)) return;
     }
-    onBook({
+    const result = onBook({
       name: customerName,
       phone: customerPhone,
       barberId: selectedBarber,
       isNextDay: isNextDayBooking,
+      services: selectedServices,
     });
+    if (!result) return;
+
+    let estimatedTimeLabel = null;
+    if (!result.immediateSeat) {
+      const d = new Date();
+      d.setMinutes(d.getMinutes() + (result.waitMinutes || 0));
+      estimatedTimeLabel = t.estimatedTime(d.toLocaleTimeString(t.locale, { hour: '2-digit', minute: '2-digit' }));
+    }
+
+    setConfirmData({
+      mode: 'now',
+      customerName, customerPhone,
+      barberName: result.barberName,
+      serviceIds: selectedServices,
+      immediateSeat: result.immediateSeat,
+      queuePosition: result.queuePosition,
+      estimatedTimeLabel,
+      seatExpiresAt: result.seatExpiresAt,
+    });
+
     setCustomerName('');
     setCustomerPhone('');
+    setSelectedServices([]);
+    setAttemptedSubmit(false);
+  };
+
+  // ── submit: จองล่วงหน้า ───────────────────────────────────────────────────
+  const handleSubmitAdvance = (e) => {
+    e.preventDefault();
+    setAttemptedSubmit(true);
+    setSlotTakenError(false);
+    if (!customerName.trim() || !customerPhone.trim() || selectedServices.length === 0 || !selectedTime) return;
+
+    const result = onBookAdvance({
+      name: customerName,
+      phone: customerPhone,
+      barberId: selectedBarber,
+      dateKey: selectedDateKey,
+      time: selectedTime,
+      services: selectedServices,
+    });
+
+    if (!result || !result.ok) {
+      setSlotTakenError(true);
+      setSelectedTime(null);
+      return;
+    }
+
+    const dateLabel = dateKeyToLabel(selectedDateKey, t.locale);
+    setConfirmData({
+      mode: 'advance',
+      customerName, customerPhone,
+      barberName: result.barberName,
+      serviceIds: selectedServices,
+      dateLabel,
+      time: selectedTime,
+    });
+
+    setCustomerName('');
+    setCustomerPhone('');
+    setSelectedServices([]);
+    setSelectedTime(null);
+    setAttemptedSubmit(false);
   };
 
   const inputCls = {
@@ -99,8 +202,21 @@ export default function CustomerView({ barbers, onBook, theme }) {
     ? (nearClose ? '⚡ ใกล้ปิด' : '🟢 เปิดอยู่')
     : (afterClose ? '🔴 ปิดแล้ว' : '🕐 ยังไม่เปิด');
 
+  // ── หน้าแรก: แสดงภาพเคลื่อนไหวอย่างเดียว ─────────────────────────────────
+  if (screen === 'hero') {
+    return <Hero theme={th} t={t} onCtaClick={goToBooking} />;
+  }
+
+  // ── หน้าสอง: ระบบจองคิว ───────────────────────────────────────────────────
   return (
     <div className="space-y-4 sm:space-y-5">
+
+      {/* ── ปุ่มย้อนกลับหน้าแรก ── */}
+      <button type="button" onClick={() => setScreen('hero')}
+        className="flex items-center gap-1.5 text-xs font-medium hover:opacity-70 transition-opacity"
+        style={{ color: th.pageText + '70' }}>
+        <ArrowLeft size={13} /> {t.heroTitle}
+      </button>
 
       {/* ── แถบสถานะ + ภาษา ── */}
       <div className="flex items-center justify-between gap-2">
@@ -145,8 +261,29 @@ export default function CustomerView({ barbers, onBook, theme }) {
         </div>
       </div>
 
-      {/* ── Banner ปิดแล้ว → จองวันถัดไป (≥ 21:00 เท่านั้น) ── */}
-      {afterClose && (
+      {/* ── Mode tabs ── */}
+      <div className="flex rounded-xl p-1 gap-1 border"
+        style={{ backgroundColor: th.inputBg, borderColor: th.inputBorder }}>
+        {[
+          { key: 'now', label: t.modeNow, icon: <Clock size={14} /> },
+          { key: 'advance', label: t.modeAdvance, icon: <CalendarDays size={14} /> },
+        ].map(({ key, label, icon }) => {
+          const active = mode === key;
+          return (
+            <button key={key} type="button"
+              onClick={() => { setMode(key); setAttemptedSubmit(false); setSlotTakenError(false); }}
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200"
+              style={active
+                ? { background: `linear-gradient(90deg,${th.accentFrom},${th.accentTo})`, color: th.accentText, boxShadow: `0 2px 8px ${th.accentShadow}` }
+                : { color: th.pageText + '80' }}>
+              {icon}{label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Banner ปิดแล้ว → จองวันถัดไป (≥ 21:00 เท่านั้น, เฉพาะโหมด now) ── */}
+      {mode === 'now' && afterClose && (
         <div className="flex items-start gap-3 p-3 rounded-xl"
           style={{ backgroundColor: `${th.accent}15`, border: `1px solid ${th.accent}35` }}>
           <CalendarClock size={17} className="shrink-0 mt-0.5" style={{ color: th.accent }} />
@@ -159,8 +296,7 @@ export default function CustomerView({ barbers, onBook, theme }) {
         </div>
       )}
 
-      {/* ── Banner ยังไม่เปิด (ก่อน 10:00) → จองวันนี้ได้เลย ── */}
-      {!shopOpen && !afterClose && (
+      {mode === 'now' && !shopOpen && !afterClose && (
         <div className="flex items-start gap-3 p-3 rounded-xl"
           style={{ backgroundColor: `${th.accent}12`, border: `1px solid ${th.accent}30` }}>
           <Clock size={17} className="shrink-0 mt-0.5" style={{ color: th.accent }} />
@@ -171,8 +307,7 @@ export default function CustomerView({ barbers, onBook, theme }) {
         </div>
       )}
 
-      {/* ── Banner ใกล้ปิด (20:30–21:00) ── */}
-      {nearClose && (
+      {mode === 'now' && nearClose && (
         <div className="flex items-start gap-3 p-3 rounded-xl"
           style={{ backgroundColor: `${th.servingColor}12`, border: `1px solid ${th.servingColor}30` }}>
           <AlertTriangle size={16} className="shrink-0 mt-0.5" style={{ color: th.servingColor }} />
@@ -192,8 +327,8 @@ export default function CustomerView({ barbers, onBook, theme }) {
             <UserPlus size={16} style={{ color: th.accent }} />
           </div>
           <h2 className="font-display text-base sm:text-lg font-bold" style={{ color: th.pageText }}>
-            {t.bookingTitle}
-            {isNextDayBooking && (
+            {mode === 'now' ? t.bookingTitle : t.modeAdvance}
+            {mode === 'now' && isNextDayBooking && (
               <span className="ml-2 text-xs font-normal px-2 py-0.5 rounded-full align-middle"
                 style={{ backgroundColor: `${th.accent}20`, color: th.accent }}>
                 {t.nextDayNote}
@@ -203,7 +338,7 @@ export default function CustomerView({ barbers, onBook, theme }) {
         </div>
         <div className="h-px mb-4 opacity-40" style={{ background: th.dividerLine }} />
 
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <form onSubmit={mode === 'now' ? handleSubmitNow : handleSubmitAdvance} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium mb-1.5 uppercase tracking-wide"
@@ -221,24 +356,99 @@ export default function CustomerView({ barbers, onBook, theme }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium mb-1.5 uppercase tracking-wide"
-                style={{ color: th.pageText + '60' }}>{t.labelBarber}</label>
-              <select value={selectedBarber} onChange={e => setSelectedBarber(e.target.value)}
-                style={{ ...inputCls, appearance: 'none' }}>
-                <option value="any">{t.anyBarber}</option>
-                {barbers.map(b => {
-                  const disabled = barberDisabled(b);
-                  return (
-                    <option key={b.id} value={b.id} disabled={disabled}>
-                      {b.name}{disabled ? ` — ${t.barberFullNearClose}` : ''}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-            <div className="flex items-end">
+          {/* บริการ */}
+          <div>
+            <ServiceSelector theme={th} t={t} selected={selectedServices}
+              onChange={ids => { setSelectedServices(ids); setSelectedTime(null); }} />
+            {attemptedSubmit && selectedServices.length === 0 && (
+              <p className="text-xs mt-1.5" style={{ color: th.servingColor }}>{t.servicesRequired}</p>
+            )}
+          </div>
+
+          {/* เลือกช่าง */}
+          <div>
+            <label className="block text-xs font-medium mb-1.5 uppercase tracking-wide"
+              style={{ color: th.pageText + '60' }}>{t.labelBarber}</label>
+            <select value={barberSelectValue}
+              onChange={e => { setSelectedBarber(e.target.value); setSelectedTime(null); }}
+              style={{ ...inputCls, appearance: 'none' }}>
+              <option value="any">{t.anyBarber}</option>
+              {barbers.map(b => {
+                const disabled = mode === 'now' && barberDisabled(b);
+                return (
+                  <option key={b.id} value={b.id} disabled={disabled}>
+                    {b.name}{disabled ? ` — ${t.barberFullNearClose}` : ''}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          {mode === 'now' ? (
+            <button type="submit"
+              className="w-full font-bold rounded-lg py-3 transition-all active:scale-95"
+              style={{
+                background: `linear-gradient(135deg,${th.accentFrom},${th.accentTo})`,
+                color: th.accentText,
+                fontSize: '15px',
+                boxShadow: `0 4px 14px ${th.accentShadow}`,
+              }}>
+              {t.bookBtn}
+            </button>
+          ) : (
+            <>
+              {/* เลือกวันที่ — จองข้ามวันข้ามเดือนได้ ไม่จำกัดแค่ 7 วัน */}
+              <div>
+                <label className="block text-xs font-medium mb-1.5 uppercase tracking-wide"
+                  style={{ color: th.pageText + '60' }}>{t.selectDate}</label>
+                <input
+                  type="date"
+                  value={selectedDateKey}
+                  min={toDateKey(new Date())}
+                  required
+                  onChange={e => { if (e.target.value) { setSelectedDateKey(e.target.value); setSelectedTime(null); } }}
+                  style={inputCls}
+                />
+                <p className="text-[11px] mt-1" style={{ color: th.pageText + '50' }}>
+                  {dateKeyToLabel(selectedDateKey, t.locale)}{selectedDateKey === toDateKey(new Date()) ? ` ${t.todaySuffix}` : ''}
+                </p>
+              </div>
+
+              {/* เลือกเวลา */}
+              <div>
+                <label className="block text-xs font-medium mb-1.5 uppercase tracking-wide"
+                  style={{ color: th.pageText + '60' }}>{t.selectTime}</label>
+                {durationMin === 0 ? (
+                  <p className="text-xs" style={{ color: th.pageText + '55' }}>{t.pickTimeFirst}</p>
+                ) : availableSlots.length === 0 ? (
+                  <p className="text-xs" style={{ color: th.servingColor }}>{t.noSlotsAvailable}</p>
+                ) : (
+                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                    {availableSlots.map(slot => {
+                      const active = slot === selectedTime;
+                      return (
+                        <button key={slot} type="button"
+                          onClick={() => setSelectedTime(slot)}
+                          className="px-2 py-2 rounded-lg text-xs font-semibold transition-all"
+                          style={active
+                            ? { background: `linear-gradient(135deg,${th.accentFrom},${th.accentTo})`, color: th.accentText }
+                            : { backgroundColor: th.inputBg, border: `1px solid ${th.inputBorder}`, color: th.pageText + '90' }}>
+                          {slot}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {attemptedSubmit && !selectedTime && durationMin > 0 && availableSlots.length > 0 && (
+                  <p className="text-xs mt-1.5" style={{ color: th.servingColor }}>{t.selectTime}</p>
+                )}
+                {slotTakenError && (
+                  <p className="text-xs mt-1.5 flex items-center gap-1" style={{ color: th.servingColor }}>
+                    <AlertTriangle size={12} /> {t.noSlotsAvailable}
+                  </p>
+                )}
+              </div>
+
               <button type="submit"
                 className="w-full font-bold rounded-lg py-3 transition-all active:scale-95"
                 style={{
@@ -247,10 +457,10 @@ export default function CustomerView({ barbers, onBook, theme }) {
                   fontSize: '15px',
                   boxShadow: `0 4px 14px ${th.accentShadow}`,
                 }}>
-                {t.bookBtn}
+                {t.advanceBookBtn}
               </button>
-            </div>
-          </div>
+            </>
+          )}
 
           <div className="flex items-center gap-1.5 text-xs pt-1" style={{ color: th.pageText + '40' }}>
             <Volume2 size={12} style={{ color: th.accent + '70' }} />
@@ -263,7 +473,7 @@ export default function CustomerView({ barbers, onBook, theme }) {
       <section>
         <div className="flex items-center gap-2.5 mb-3">
           <div className="p-1.5 rounded-lg shrink-0" style={{ backgroundColor: `${th.accent}20` }}>
-            <Clock size={16} style={{ color: th.accent }} />
+            <Users size={16} style={{ color: th.accent }} />
           </div>
           <h2 className="font-display text-base sm:text-lg font-bold" style={{ color: th.pageText }}>
             {t.queueTitle}
@@ -272,7 +482,7 @@ export default function CustomerView({ barbers, onBook, theme }) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {barbers.map(barber => {
-            const disabled = barberDisabled(barber);
+            const disabled = mode === 'now' && barberDisabled(barber);
             return (
               <div key={barber.id}
                 className="rounded-xl p-4 flex flex-col transition-all duration-200"
@@ -352,7 +562,7 @@ export default function CustomerView({ barbers, onBook, theme }) {
                             </div>
                             <div className="pl-7 text-xs flex items-center gap-1" style={{ color: th.pageText + '45' }}>
                               <Info size={10} style={{ color: th.accent + '70' }} />
-                              {getEstimatedTime(index)}
+                              {getEstimatedTime(barber, index)}
                             </div>
                           </div>
                         ))}
@@ -365,6 +575,11 @@ export default function CustomerView({ barbers, onBook, theme }) {
           })}
         </div>
       </section>
+
+      {/* ── ป๊อปอัพยืนยันการจอง ── */}
+      {confirmData && (
+        <BookingConfirmModal theme={th} t={t} data={confirmData} onClose={() => setConfirmData(null)} />
+      )}
     </div>
   );
 }

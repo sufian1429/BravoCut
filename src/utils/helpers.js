@@ -1,6 +1,6 @@
 
 // ฟังก์ชันประกาศเสียง
-const speak = (text) => {
+export const speak = (text) => {
   if ('speechSynthesis' in window) {
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'th-TH';
@@ -10,7 +10,7 @@ const speak = (text) => {
 };
 
 // คำนวณเวลาที่ต้องรอ
-const getEstimatedTime = (queueIndex) => {
+export const getEstimatedTime = (queueIndex) => {
   const avgMinutesPerCut = 40;
   const waitMinutes = (queueIndex + 1) * avgMinutesPerCut; 
   const estimateDate = new Date();

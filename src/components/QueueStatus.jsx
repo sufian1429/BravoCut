@@ -1,4 +1,4 @@
-import React from 'react';
+// ⚠️ DEPRECATED — logic ถูกรวมไปใน CustomerView.jsx แล้ว ไฟล์นี้ไม่ถูกใช้งาน
 import { Clock, User, Info } from 'lucide-react';
 
 const getEstimatedTime = (queueIndex) => {

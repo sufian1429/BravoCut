@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Palette, X } from 'lucide-react';
 import { themeList } from '../utils/themes';
 
@@ -35,7 +35,7 @@ function BarberLogo({ accentFrom, accentTo, accentText, size = 38 }) {
 // ── ชื่อร้าน — แก้ bug ข้อความหาย ────────────────────────
 // ไม่ใช้ WebkitTextFillColor แล้ว ใช้ color ตรงๆ แทน
 // เพื่อให้ทุกธีม (โดยเฉพาะธีมสว่าง) แสดงข้อความถูกต้อง
-function BrandName({ accentFrom, accentTo, pageText, navSubtitle }) {
+function BrandName({ accentFrom, navSubtitle }) {
   // ตรวจสอบว่า accentFrom กับ pageText ต่างกันพอ
   // ถ้าธีมสว่าง accent อาจจะซีดบนพื้นขาว → ใช้ pageText แทน
   return (
@@ -55,7 +55,7 @@ function BrandName({ accentFrom, accentTo, pageText, navSubtitle }) {
 }
 
 // ── Navbar ─────────────────────────────────────────────────
-export default function Navbar({ viewMode, setViewMode, theme, setTheme }) {
+export default function Navbar({ viewMode, setViewMode, theme, setTheme, unacknowledgedCount = 0 }) {
   const [showThemePicker, setShowThemePicker] = useState(false);
   const t = theme;
   const categories = [...new Set(themeList.map(th => th.category))];
@@ -111,14 +111,21 @@ export default function Navbar({ viewMode, setViewMode, theme, setTheme }) {
               style={{ backgroundColor: t.inputBg, borderColor: t.inputBorder }}>
               {[{ mode: 'customer', label: 'ลูกค้า' }, { mode: 'barber', label: 'ช่าง' }].map(({ mode, label }) => {
                 const active = viewMode === mode;
+                const showBadge = mode === 'barber' && unacknowledgedCount > 0;
                 return (
                   <button key={mode} onClick={() => setViewMode(mode)}
-                    className="px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 whitespace-nowrap"
+                    className="relative px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 whitespace-nowrap"
                     style={active
                       ? { background: `linear-gradient(90deg,${t.accentFrom},${t.accentTo})`, color: t.accentText, boxShadow: `0 2px 8px ${t.accentShadow}` }
                       : { color: t.pageText + '70' }
                     }>
                     {label}
+                    {showBadge && (
+                      <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center text-[9px] font-bold"
+                        style={{ backgroundColor: '#ef4444', color: '#fff', boxShadow: '0 0 0 2px ' + t.navBg }}>
+                        {unacknowledgedCount > 9 ? '9+' : unacknowledgedCount}
+                      </span>
+                    )}
                   </button>
                 );
               })}

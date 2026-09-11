@@ -1,18 +1,52 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Navbar from './components/Navbar';
 import CustomerView from './views/CustomerView';
 import BarberView from './views/BarberView';
 import { themes } from './utils/themes';
+import { totalMinutes, customerDuration } from './utils/services';
+import { isSlotAvailable, findAnyAvailableBarber } from './utils/appointments';
+
+const SEAT_GRACE_MS = 15 * 60 * 1000; // ลูกค้าต้องมาถึงภายใน 15 นาที ไม่งั้นสละสิทธิ์อัตโนมัติ
 
 export default function App() {
   const [viewMode, setViewMode] = useState('customer');
   const [theme, setTheme]       = useState(themes.pureWhite);
-  const [barbers, setBarbers]   = useState([
+  const BARBERS_DEFAULT = [
     { id: 1, name: 'ช่างเอ (A)', currentCustomer: null, queue: [] },
     { id: 2, name: 'ช่างบี (B)', currentCustomer: null, queue: [] },
     { id: 3, name: 'ช่างซี (C)', currentCustomer: null, queue: [] },
     { id: 4, name: 'ช่างดี (D)', currentCustomer: null, queue: [] },
-  ]);
+  ];
+
+  const [barbers, setBarbers] = useState(() => {
+    try {
+      const saved = localStorage.getItem('bravocut_barbers');
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignore */ }
+    return BARBERS_DEFAULT;
+  });
+
+  // ── รายการนัดล่วงหน้า (date + time booking) ────────────────────────────
+  const [appointments, setAppointments] = useState(() => {
+    try {
+      const saved = localStorage.getItem('bravocut_appointments');
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignore */ }
+    return [];
+  });
+
+  // sync ทุกครั้งที่ barbers เปลี่ยน
+  useEffect(() => {
+    try { localStorage.setItem('bravocut_barbers', JSON.stringify(barbers)); } catch { /* ignore */ }
+  }, [barbers]);
+
+  useEffect(() => {
+    try { localStorage.setItem('bravocut_appointments', JSON.stringify(appointments)); } catch { /* ignore */ }
+  }, [appointments]);
+
+  // เก็บ ref ของ barbers ล่าสุดไว้ใช้ใน interval โดยไม่ต้อง re-subscribe
+  const barbersRef = useRef(barbers);
+  useEffect(() => { barbersRef.current = barbers; }, [barbers]);
 
   // ── AudioContext unlock ───────────────────────────────────────────────────
   // browser ทุกตัว (Chrome, Safari, Firefox, Samsung) บล็อก audio จนกว่า
@@ -37,7 +71,7 @@ export default function App() {
         audioUnlocked.current = true;
         audioCtxRef.current   = ctx;
       });
-    } catch (_) {}
+    } catch { /* ignore */ }
   };
 
   // ผูก unlock กับทุก interaction บนหน้า
@@ -113,8 +147,9 @@ export default function App() {
     }
   };
 
-  // ── handleBook ───────────────────────────────────────────────────────────
-  const handleBook = ({ name, phone, barberId, isNextDay }) => {
+  // ── handleBook (เข้าคิวตอนนี้ / walk-in) ────────────────────────────────
+  // คืนค่าข้อมูลสรุป ให้ CustomerView เอาไปเปิดป๊อปอัพยืนยัน
+  const handleBook = ({ name, phone, barberId, isNextDay, services }) => {
     let targetBarberId = barberId;
     if (targetBarberId === 'any') {
       const free = barbers.find(b => !b.currentCustomer);
@@ -128,26 +163,87 @@ export default function App() {
     }
     targetBarberId = parseInt(targetBarberId);
 
-    // speak() ต้องเรียกก่อน setState เพื่อให้อยู่ใน user-gesture call stack
     const target = barbers.find(b => b.id === targetBarberId);
-    if (target) {
-      if (isNextDay) {
-        speak(`จองคิวสำเร็จครับ คุณ ${name} จะตัดกับ ${target.name} ในวันพรุ่งนี้ครับ`);
-      } else if (!target.currentCustomer) {
-        speak(`มีการจองคิวใหม่ครับ คุณ ${name} ตัดกับ ${target.name} ไม่มีคิว เชิญตัดได้เลยครับ`);
-      } else {
-        speak(`มีการจองคิวใหม่ครับ คุณ ${name} ตัดกับ ${target.name} ได้คิวที่ ${target.queue.length + 1} ครับ`);
-      }
+    if (!target) return null;
+
+    const immediateSeat  = !target.currentCustomer;
+    const queuePosition  = immediateSeat ? null : target.queue.length + 1;
+    const seatExpiresAt  = immediateSeat ? Date.now() + SEAT_GRACE_MS : null;
+    const waitMinutes    = immediateSeat ? 0 : (
+      (target.currentCustomer ? customerDuration(target.currentCustomer) : 0) +
+      target.queue.reduce((sum, c) => sum + customerDuration(c), 0)
+    );
+
+    // speak() ต้องเรียกก่อน setState เพื่อให้อยู่ใน user-gesture call stack
+    if (isNextDay) {
+      speak(`จองคิวสำเร็จครับ คุณ ${name} จะตัดกับ ${target.name} ในวันพรุ่งนี้ครับ`);
+    } else if (immediateSeat) {
+      speak(`มีการจองคิวใหม่ครับ คุณ ${name} ตัดกับ ${target.name} ไม่มีคิว เชิญตัดได้เลยครับ`);
+    } else {
+      speak(`มีการจองคิวใหม่ครับ คุณ ${name} ตัดกับ ${target.name} ได้คิวที่ ${queuePosition} ครับ`);
     }
+
+    const customerRecord = {
+      name, phone, id: Date.now(),
+      services: services || [],
+      acknowledged: false,
+      arrived: false,
+      seatExpiresAt,
+    };
 
     setBarbers(prev => prev.map(b => {
       if (b.id !== targetBarberId) return b;
-      if (!b.currentCustomer) return { ...b, currentCustomer: { name, phone, id: Date.now() } };
-      return { ...b, queue: [...b.queue, { name, phone, id: Date.now() }] };
+      if (!b.currentCustomer) return { ...b, currentCustomer: customerRecord };
+      return { ...b, queue: [...b.queue, customerRecord] };
     }));
+
+    return { barberName: target.name, immediateSeat, queuePosition, seatExpiresAt, waitMinutes };
   };
 
-  // ── handleFinish ─────────────────────────────────────────────────────────
+  // ── handleBookAdvance (จองล่วงหน้า — เลือกวันที่ + เวลา) ────────────────
+  const handleBookAdvance = ({ name, phone, barberId, dateKey, time, services }) => {
+    const durationMin = totalMinutes(services);
+    let targetBarberId = barberId;
+
+    if (targetBarberId === 'any') {
+      const found = findAnyAvailableBarber({
+        dateKey, time, durationMin, barberIds: barbers.map(b => b.id), appointments,
+      });
+      if (found == null) return { ok: false };
+      targetBarberId = found;
+    } else {
+      targetBarberId = parseInt(targetBarberId);
+      if (!isSlotAvailable({ dateKey, time, barberId: targetBarberId, durationMin, appointments })) {
+        return { ok: false };
+      }
+    }
+
+    const target = barbers.find(b => b.id === targetBarberId);
+    if (!target) return { ok: false };
+
+    speak(`จองคิวล่วงหน้าสำเร็จครับ คุณ ${name} นัดตัดกับ ${target.name} เวลา ${time} น.`);
+
+    const record = {
+      id: Date.now(),
+      barberId: targetBarberId,
+      dateKey, time, durationMin,
+      services: services || [],
+      customerName: name,
+      customerPhone: phone,
+      createdAt: Date.now(),
+      acknowledged: false,
+    };
+    setAppointments(prev => [...prev, record]);
+
+    return { ok: true, barberName: target.name };
+  };
+
+  // ── handleReset (barber view) ────────────────────────────────────────────
+  const handleReset = () => {
+    setBarbers(prev => prev.map(b => ({ ...b, currentCustomer: null, queue: [] })));
+  };
+
+  // ── handleFinish (barber view) ───────────────────────────────────────────
   const handleFinish = (barberId) => {
     const target = barbers.find(b => b.id === barberId);
     if (target?.queue.length > 0) {
@@ -157,11 +253,91 @@ export default function App() {
       if (b.id !== barberId) return b;
       if (b.queue.length > 0) {
         const [next, ...rest] = b.queue;
-        return { ...b, currentCustomer: next, queue: rest };
+        return {
+          ...b,
+          currentCustomer: { ...next, seatExpiresAt: Date.now() + SEAT_GRACE_MS, arrived: false },
+          queue: rest,
+        };
       }
       return { ...b, currentCustomer: null };
     }));
   };
+
+  // ── handleArrived — ช่างกดยืนยันว่าลูกค้ามาถึงแล้ว (หยุดนับถอยหลัง) ─────
+  const handleArrived = (barberId) => {
+    setBarbers(prev => prev.map(b => {
+      if (b.id !== barberId || !b.currentCustomer) return b;
+      return { ...b, currentCustomer: { ...b.currentCustomer, arrived: true, seatExpiresAt: null } };
+    }));
+  };
+
+  // ── ระบบแจ้งเตือนฝั่งแอดมิน (ช่าง) — รับทราบคิวใหม่ ──────────────────────
+  const handleAcknowledgeWalkIn = (barberId, customerId) => {
+    setBarbers(prev => prev.map(b => {
+      if (b.id !== barberId) return b;
+      const currentCustomer = b.currentCustomer && b.currentCustomer.id === customerId
+        ? { ...b.currentCustomer, acknowledged: true } : b.currentCustomer;
+      const queue = b.queue.map(q => (q.id === customerId ? { ...q, acknowledged: true } : q));
+      return { ...b, currentCustomer, queue };
+    }));
+  };
+
+  const handleAcknowledgeAppointment = (appointmentId) => {
+    setAppointments(prev => prev.map(a => (a.id === appointmentId ? { ...a, acknowledged: true } : a)));
+  };
+
+  const handleAcknowledgeAll = () => {
+    setBarbers(prev => prev.map(b => ({
+      ...b,
+      currentCustomer: b.currentCustomer ? { ...b.currentCustomer, acknowledged: true } : null,
+      queue: b.queue.map(q => ({ ...q, acknowledged: true })),
+    })));
+    setAppointments(prev => prev.map(a => ({ ...a, acknowledged: true })));
+  };
+
+  // ── auto-release: ลูกค้าที่ได้คิวทันที (immediateSeat) แต่ไม่มาภายใน 15 นาที ─
+  useEffect(() => {
+    const id = setInterval(() => {
+      const current = barbersRef.current;
+      const expiredBarbers = current.filter(b =>
+        b.currentCustomer &&
+        !b.currentCustomer.arrived &&
+        b.currentCustomer.seatExpiresAt &&
+        Date.now() > b.currentCustomer.seatExpiresAt
+      );
+      if (expiredBarbers.length === 0) return;
+
+      expiredBarbers.forEach(b => {
+        if (b.queue.length > 0) {
+          speak(`คิวของคุณ ${b.currentCustomer.name} หมดเวลาที่กำหนด ระบบสละสิทธิ์อัตโนมัติ เชิญคิวต่อไปครับ คุณ ${b.queue[0].name} ที่ ${b.name} ครับ`);
+        } else {
+          speak(`คิวของคุณ ${b.currentCustomer.name} หมดเวลาที่กำหนด ระบบสละสิทธิ์อัตโนมัติครับ`);
+        }
+      });
+
+      setBarbers(prev => prev.map(b => {
+        const isExpired = expiredBarbers.some(e => e.id === b.id);
+        if (!isExpired) return b;
+        if (b.queue.length > 0) {
+          const [next, ...rest] = b.queue;
+          return {
+            ...b,
+            currentCustomer: { ...next, seatExpiresAt: Date.now() + SEAT_GRACE_MS, arrived: false },
+            queue: rest,
+          };
+        }
+        return { ...b, currentCustomer: null };
+      }));
+    }, 5000);
+    return () => clearInterval(id);
+  }, []);
+
+  // ── จำนวนแจ้งเตือนที่ยังไม่รับทราบ (badge) ───────────────────────────────
+  const unacknowledgedCount = barbers.reduce((sum, b) => {
+    let c = b.currentCustomer && !b.currentCustomer.acknowledged ? 1 : 0;
+    c += b.queue.filter(q => !q.acknowledged).length;
+    return sum + c;
+  }, 0) + appointments.filter(a => !a.acknowledged).length;
 
   const t = theme;
 
@@ -177,12 +353,32 @@ export default function App() {
         fontFamily: 'Inter, sans-serif',
       }}
     >
-      <Navbar viewMode={viewMode} setViewMode={setViewMode} theme={theme} setTheme={setTheme} />
+      <Navbar
+        viewMode={viewMode} setViewMode={setViewMode}
+        theme={theme} setTheme={setTheme}
+        unacknowledgedCount={unacknowledgedCount}
+      />
 
       <main className="max-w-4xl mx-auto px-4 py-8 animate-fade-in">
         {viewMode === 'customer'
-          ? <CustomerView barbers={barbers} onBook={handleBook} theme={theme} />
-          : <BarberView barbers={barbers} onFinish={handleFinish} theme={theme} />
+          ? <CustomerView
+              barbers={barbers}
+              appointments={appointments}
+              onBook={handleBook}
+              onBookAdvance={handleBookAdvance}
+              theme={theme}
+            />
+          : <BarberView
+              barbers={barbers}
+              appointments={appointments}
+              onFinish={handleFinish}
+              onReset={handleReset}
+              onArrived={handleArrived}
+              onAcknowledgeWalkIn={handleAcknowledgeWalkIn}
+              onAcknowledgeAppointment={handleAcknowledgeAppointment}
+              onAcknowledgeAll={handleAcknowledgeAll}
+              theme={theme}
+            />
         }
       </main>
 
