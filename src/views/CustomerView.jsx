@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { locales } from '../utils/locales';
 import {
+  OPEN_HOUR,
   isShopOpen,
   isAfterClose,
   isNearClose,
@@ -13,7 +14,7 @@ import {
   barberAcceptsNearClose,
 } from '../utils/shopHours';
 import { totalMinutes, customerDuration } from '../utils/services';
-import { getAvailableSlots, toDateKey, dateKeyToLabel } from '../utils/appointments';
+import { getAvailableSlots, toDateKey, dateKeyToLabel, minutesToHHMM } from '../utils/appointments';
 import Hero from '../components/Hero';
 import ServiceSelector from '../components/ServiceSelector';
 import BookingConfirmModal from '../components/BookingConfirmModal';
@@ -104,16 +105,54 @@ export default function CustomerView({ barbers, appointments, onBook, onBookAdva
   const handleSubmitNow = (e) => {
     e.preventDefault();
     setAttemptedSubmit(true);
+    setSlotTakenError(false);
     if (!customerName.trim() || !customerPhone.trim() || selectedServices.length === 0) return;
+
+    let targetBarberId = selectedBarber;
     if (selectedBarber !== 'any') {
       const b = barbers.find(b => b.id === parseInt(selectedBarber));
       if (b && barberDisabled(b)) return;
+    } else if (nearClose) {
+      // ใกล้ปิดร้าน — "ช่างคนไหนก็ได้" ต้องเลือกเฉพาะช่างที่ยังรับไหวจริง ๆ เท่านั้น
+      // (ไม่งั้นจะเผลอจ่อคิวลูกค้าให้ช่างที่รับไม่ทันจริง ๆ)
+      const eligible = barbers.find(b => barberAcceptsNearClose(b));
+      if (!eligible) { setSlotTakenError(true); return; }
+      targetBarberId = eligible.id;
     }
+
+    // นอกเวลาทำการ (≥ 21:00) → จองเป็นนัดวันถัดไปตอนร้านเปิด แทนการเข้าคิวจริงตอนนี้
+    // (จะให้ "เข้าคิวทันที + มาภายใน 15 นาที" ไม่ได้ เพราะร้านปิดอยู่)
+    if (isNextDayBooking) {
+      const dateKey = toDateKey(nextDay);
+      const time = minutesToHHMM(OPEN_HOUR * 60);
+      const result = onBookAdvance({
+        name: customerName,
+        phone: customerPhone,
+        barberId: targetBarberId,
+        dateKey, time,
+        services: selectedServices,
+      });
+      if (!result || !result.ok) { setSlotTakenError(true); return; }
+
+      setConfirmData({
+        mode: 'advance',
+        customerName, customerPhone,
+        barberName: result.barberName,
+        serviceIds: selectedServices,
+        dateLabel: dateKeyToLabel(dateKey, t.locale),
+        time,
+      });
+      setCustomerName('');
+      setCustomerPhone('');
+      setSelectedServices([]);
+      setAttemptedSubmit(false);
+      return;
+    }
+
     const result = onBook({
       name: customerName,
       phone: customerPhone,
-      barberId: selectedBarber,
-      isNextDay: isNextDayBooking,
+      barberId: targetBarberId,
       services: selectedServices,
     });
     if (!result) return;
@@ -382,6 +421,11 @@ export default function CustomerView({ barbers, appointments, onBook, onBookAdva
                 );
               })}
             </select>
+            {mode === 'now' && slotTakenError && (
+              <p className="text-xs mt-1.5 flex items-center gap-1" style={{ color: th.servingColor }}>
+                <AlertTriangle size={12} /> {t.noSlotsAvailable}
+              </p>
+            )}
           </div>
 
           {mode === 'now' ? (

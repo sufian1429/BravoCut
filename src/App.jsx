@@ -149,7 +149,9 @@ export default function App() {
 
   // ── handleBook (เข้าคิวตอนนี้ / walk-in) ────────────────────────────────
   // คืนค่าข้อมูลสรุป ให้ CustomerView เอาไปเปิดป๊อปอัพยืนยัน
-  const handleBook = ({ name, phone, barberId, isNextDay, services }) => {
+  // หมายเหตุ: ใช้เฉพาะตอนร้านเปิดอยู่จริงเท่านั้น — กรณีนอกเวลาทำการ
+  // CustomerView จะเรียก onBookAdvance (นัดวันถัดไป) แทน ไม่ใช่ฟังก์ชันนี้
+  const handleBook = ({ name, phone, barberId, services }) => {
     let targetBarberId = barberId;
     if (targetBarberId === 'any') {
       const free = barbers.find(b => !b.currentCustomer);
@@ -175,9 +177,7 @@ export default function App() {
     );
 
     // speak() ต้องเรียกก่อน setState เพื่อให้อยู่ใน user-gesture call stack
-    if (isNextDay) {
-      speak(`จองคิวสำเร็จครับ คุณ ${name} จะตัดกับ ${target.name} ในวันพรุ่งนี้ครับ`);
-    } else if (immediateSeat) {
+    if (immediateSeat) {
       speak(`มีการจองคิวใหม่ครับ คุณ ${name} ตัดกับ ${target.name} ไม่มีคิว เชิญตัดได้เลยครับ`);
     } else {
       speak(`มีการจองคิวใหม่ครับ คุณ ${name} ตัดกับ ${target.name} ได้คิวที่ ${queuePosition} ครับ`);
